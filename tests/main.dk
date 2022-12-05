@@ -1,0 +1,4 @@
+
+funktion begynd() -> heltal
+    tilbagesend 1
+slut

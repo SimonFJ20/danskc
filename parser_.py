@@ -27,7 +27,7 @@ class ParsedStatement:
 
 def parsed_statements_to_string(statements: List[ParsedStatement]) -> str:
     statements_ = "\n".join(str(statement) for statement in statements)
-    return f"[ {statements_} ]"
+    return f"[\n{statements_}\n]"
 
 
 class ParsedExprStatement(ParsedStatement):

@@ -178,32 +178,32 @@ class CheckedFloatType(CheckedType):
     def __init__(self) -> None:
         super().__init__()
 
-        def type_type(self) -> CheckedTypeTypes:
-            return CheckedTypeTypes.Float
+    def type_type(self) -> CheckedTypeTypes:
+        return CheckedTypeTypes.Float
 
 
 class CheckedCharType(CheckedType):
     def __init__(self) -> None:
         super().__init__()
 
-        def type_type(self) -> CheckedTypeTypes:
-            return CheckedTypeTypes.Char
+    def type_type(self) -> CheckedTypeTypes:
+        return CheckedTypeTypes.Char
 
 
 class CheckedStringType(CheckedType):
     def __init__(self) -> None:
         super().__init__()
 
-        def type_type(self) -> CheckedTypeTypes:
-            return CheckedTypeTypes.String
+    def type_type(self) -> CheckedTypeTypes:
+        return CheckedTypeTypes.String
 
 
 class CheckedBoolType(CheckedType):
     def __init__(self) -> None:
         super().__init__()
 
-        def type_type(self) -> CheckedTypeTypes:
-            return CheckedTypeTypes.Bool
+    def type_type(self) -> CheckedTypeTypes:
+        return CheckedTypeTypes.Bool
 
 
 class CheckedArrayType(CheckedType):
@@ -211,8 +211,8 @@ class CheckedArrayType(CheckedType):
         super().__init__()
         self.inner_type = inner_type
 
-        def type_type(self) -> CheckedTypeTypes:
-            return CheckedTypeTypes.Array
+    def type_type(self) -> CheckedTypeTypes:
+        return CheckedTypeTypes.Array
 
 
 class CheckedObjectType(CheckedType):
@@ -220,8 +220,8 @@ class CheckedObjectType(CheckedType):
         super().__init__()
         self.fields = fields
 
-        def type_type(self) -> CheckedTypeTypes:
-            return CheckedTypeTypes.Object
+    def type_type(self) -> CheckedTypeTypes:
+        return CheckedTypeTypes.Object
 
 
 class CheckedFuncType(CheckedType):
@@ -375,7 +375,7 @@ class CheckedAccessing(CheckedExpr):
         self,
         subject: CheckedExpr,
         value: str,
-        value_type: CheckedObjectType,
+        value_type: CheckedType,
     ) -> None:
         super().__init__()
         self.subject = subject
@@ -394,7 +394,7 @@ class CheckedIndexing(CheckedExpr):
         self,
         subject: CheckedExpr,
         value: CheckedExpr,
-        value_type: CheckedObjectType,
+        value_type: CheckedType,
     ) -> None:
         super().__init__()
         self.subject = subject
@@ -436,7 +436,7 @@ class CheckedUnary(CheckedExpr):
         self,
         subject: CheckedExpr,
         operation: CheckedUnaryOperations,
-        value_type: CheckedObjectType,
+        value_type: CheckedType,
     ) -> None:
         super().__init__()
         self.subject = subject
@@ -468,7 +468,7 @@ class CheckedBinary(CheckedExpr):
         left: CheckedExpr,
         right: CheckedExpr,
         operation: CheckedBinaryOperations,
-        value_type: CheckedObjectType,
+        value_type: CheckedType,
     ) -> None:
         super().__init__()
         self.left = left
@@ -495,7 +495,7 @@ class CheckedAssign(CheckedExpr):
         subject: CheckedExpr,
         value: CheckedExpr,
         operation: CheckedAssignOperations,
-        value_type: CheckedObjectType,
+        value_type: CheckedType,
     ) -> None:
         super().__init__()
         self.subject = subject
@@ -510,9 +510,14 @@ class CheckedAssign(CheckedExpr):
         return self.value_type
 
 
-class GlobalSymbol:
-    def __init__(self) -> None:
-        pass
+class Symbol:
+    __next_symbol_id = 0
+
+    def __init__(self, subject: str, value_type: CheckedType) -> None:
+        self.subject = subject
+        self.value_type = value_type
+        self.symbol_id = Symbol.__next_symbol_id
+        Symbol.__next_symbol_id += 1
 
 
 class GlobalTable:
@@ -521,7 +526,8 @@ class GlobalTable:
     ) -> None:
         self.top_level = top_level
         self.decl_locations = decl_locations
-        self.table: Dict[str, CheckedType] = {}
+        self.table: Dict[str, Symbol] = {}
+        self.func_local_tables: Dict[str, LocalTable] = {}
 
     def define(self, subject: str, value_type: CheckedType) -> None:
         if subject in self.table:
@@ -529,12 +535,18 @@ class GlobalTable:
                 f'shouldn\'t be possible, but multiple declarations of symbol "{subject}"'
             )
         else:
-            self.table[subject] = value_type
+            self.table[subject] = Symbol(subject, value_type)
+
+    def define_func(
+        self, subject: str, value_type: CheckedType, local_table: LocalTable
+    ) -> None:
+        self.define(subject, value_type)
+        self.func_local_tables[subject] = local_table
 
     def has(self, subject: str) -> bool:
         return subject in self.table or subject in self.decl_locations
 
-    def get(self, subject: str) -> CheckedType:
+    def get(self, subject: str) -> Symbol:
         if subject in self.table:
             return self.table[subject]
         else:
@@ -561,7 +573,7 @@ class LocalTable:
     def __init__(self) -> None:
         pass
 
-    def __add_symbol(self, subject: str, value_type: CheckedType) -> int:
+    def _add_symbol(self, subject: str, value_type: CheckedType) -> int:
         pass
 
     def define(self, subject: str, value_type: CheckedType) -> int:
@@ -570,7 +582,7 @@ class LocalTable:
     def has(self, subject: str) -> bool:
         raise NotImplementedError()
 
-    def get(self, subject: str) -> CheckedType:
+    def get(self, subject: str) -> Symbol:
         raise NotImplementedError()
 
     def branch(self) -> LocalTable:
@@ -583,24 +595,24 @@ class LocalTable:
 class TopLevelLocalTable(LocalTable):
     def __init__(self, global_table: GlobalTable, return_type: CheckedType) -> None:
         self.global_table = global_table
-        self.table: List[Tuple[str, CheckedType]] = []
-        self.local_symbols: Dict[str, CheckedType] = {}
+        self.table: List[Tuple[str, Symbol]] = []
+        self.local_symbols: Dict[str, Symbol] = {}
         self.return_type = return_type
 
-    def __add_symbol(self, subject: str, value_type: CheckedType) -> int:
-        self.table.append((subject, value_type))
+    def _add_symbol(self, subject: str, value_type: CheckedType) -> int:
+        self.table.append((subject, Symbol(subject, value_type)))
         return len(self.table) - 1
 
     def define(self, subject: str, value_type: CheckedType) -> int:
         if subject in self.local_symbols:
             raise Exception(f'multiple definitions of symbol "{subject}"')
-        self.local_symbols[subject] = value_type
-        return self.__add_symbol(subject, value_type)
+        self.local_symbols[subject] = Symbol(subject, value_type)
+        return self._add_symbol(subject, value_type)
 
     def has(self, subject: str) -> bool:
         return subject in self.local_symbols or self.global_table.has(subject)
 
-    def get(self, subject: str) -> CheckedType:
+    def get(self, subject: str) -> Symbol:
         if subject in self.local_symbols:
             return self.local_symbols[subject]
         elif self.global_table.has(subject):
@@ -618,21 +630,21 @@ class TopLevelLocalTable(LocalTable):
 class BranchedLocalTable(LocalTable):
     def __init__(self, parent: LocalTable) -> None:
         self.parent = parent
-        self.table: Dict[str, CheckedType] = {}
+        self.table: Dict[str, Symbol] = {}
 
-    def __add_symbol(self, subject: str, value_type: CheckedType) -> int:
-        return self.parent.__add_symbol(subject, value_type)
+    def _add_symbol(self, subject: str, value_type: CheckedType) -> int:
+        return self.parent._add_symbol(subject, value_type)
 
     def define(self, subject: str, value_type: CheckedType) -> int:
         if subject in self.table:
             raise Exception(f'multiple definitions of symbol "{subject}"')
-        self.table[subject] = value_type
-        return self.__add_symbol(subject, value_type)
+        self.table[subject] = Symbol(subject, value_type)
+        return self._add_symbol(subject, value_type)
 
     def has(self, subject: str) -> bool:
         return subject in self.table or self.parent.has(subject)
 
-    def get(self, subject: str) -> CheckedType:
+    def get(self, subject: str) -> Symbol:
         if subject in self.table:
             return self.table[subject]
         elif self.parent.has(subject):
@@ -647,10 +659,18 @@ class BranchedLocalTable(LocalTable):
         return self.parent.return_type_compatible(other)
 
 
+def add_global_definitions(table: GlobalTable) -> None:
+    table.define(
+        "print",
+        CheckedFuncType([CheckedParam("tekst", CheckedStringType())], CheckedIntType()),
+    )
+
+
 def check_top_level_statements(
     top_level: List[ParsedStatement],
-) -> List[CheckedStatement]:
+) -> Tuple[List[CheckedStatement], GlobalTable]:
     global_table = build_global_table(top_level)
+    add_global_definitions(global_table)
     checked_statements: List[CheckedStatement] = []
     for statement in top_level:
         if statement.statement_type() == ParsedStatementTypes.Let:
@@ -663,7 +683,7 @@ def check_top_level_statements(
             raise Exception(
                 f"statement {statement.statement_type()} not allowed in top level"
             )
-    return checked_statements
+    return (checked_statements, global_table)
 
 
 def build_global_table(top_level: List[ParsedStatement]) -> GlobalTable:
@@ -686,8 +706,8 @@ def check_top_level_let(node: ParsedLet, global_table: GlobalTable) -> CheckedLe
 
 
 def check_top_level_expr(node: ParsedExpr, global_table: GlobalTable) -> CheckedExpr:
-    if node.expr_type() == CheckedExprTypes.Int:
-        int_node = cast(CheckedInt, node)
+    if node.expr_type() == ParsedExprTypes.Int:
+        int_node = cast(ParsedInt, node)
         return CheckedInt(int_node.value)
     else:
         raise NotImplementedError()
@@ -699,7 +719,9 @@ def check_top_level_func(node: ParsedFunc, global_table: GlobalTable) -> Checked
     local_table = TopLevelLocalTable(global_table, return_type)
     for param in params:
         local_table.define(param.subject, param.value_type)
-    global_table.define(node.subject, CheckedFuncType(params, return_type))
+    global_table.define_func(
+        node.subject, CheckedFuncType(params, return_type), local_table
+    )
     body = check_statements(node.body, local_table.branch())
     return CheckedFunc(node.subject, params, return_type, body)
 
@@ -842,7 +864,10 @@ def check_expr(node: ParsedExpr, local_table: LocalTable) -> CheckedExpr:
 
 
 def check_id(node: ParsedId, local_table: LocalTable) -> CheckedId:
-    raise NotImplementedError()
+    if not local_table.has(node.value):
+        raise Exception(f'symbol "{node.value}" not defined')
+    symbol = local_table.get(node.value)
+    return CheckedId(symbol.subject, symbol.symbol_id, symbol.value_type)
 
 
 def check_array(node: ParsedArray, local_table: LocalTable) -> CheckedArray:
@@ -869,18 +894,44 @@ def check_object(node: ParsedObject, local_table: LocalTable) -> CheckedObject:
 
 
 def check_accessing(node: ParsedAccessing, local_table: LocalTable) -> CheckedAccessing:
-    raise NotImplementedError()
+    checked_subject = check_expr(node.subject, local_table)
+    if checked_subject.expr_value_type() == CheckedTypeTypes.Object:
+        object_subject = cast(CheckedObject, checked_subject)
+        fields_with_key = [
+            value for (key, value) in object_subject.values if key == node.value
+        ]
+        if len(fields_with_key) > 1:
+            raise Exception(
+                "object has multiple keys with the same name, this is impossible"
+            )
+        elif len(fields_with_key) == 0:
+            raise Exception("field does not exist on object")
+        return CheckedAccessing(
+            object_subject, node.value, fields_with_key[0].expr_value_type()
+        )
+    else:
+        raise Exception("value does not contain fields")
 
 
 def check_indexing(node: ParsedIndexing, local_table: LocalTable) -> CheckedIndexing:
-    raise NotImplementedError()
+    checked_subject = check_expr(node.subject, local_table)
+    if checked_subject.expr_value_type() == CheckedTypeTypes.Array:
+        array_subject = cast(CheckedArray, checked_subject)
+        checked_value = check_expr(node.value, local_table)
+        if checked_value.expr_value_type() != CheckedTypeTypes.Int:
+            raise Exception("type cannot index into array")
+        return CheckedIndexing(
+            array_subject, checked_value, array_subject.expr_value_type()
+        )
+    else:
+        raise Exception("value is not indexable")
 
 
 def check_call(node: ParsedCall, local_table: LocalTable) -> CheckedCall:
     checked_subject = check_expr(node.subject, local_table)
     if checked_subject.expr_value_type().type_type() != CheckedTypeTypes.Func:
         raise Exception("expression is not callable")
-    subject_type = cast(CheckedFuncType, checked_subject.expr_type())
+    subject_type = cast(CheckedFuncType, checked_subject.expr_value_type())
     checked_args = [check_expr(arg, local_table) for arg in node.args]
     if len(subject_type.params) != len(checked_args):
         raise Exception("wrong number of arguments")
@@ -898,11 +949,120 @@ def check_call(node: ParsedCall, local_table: LocalTable) -> CheckedCall:
 
 
 def check_unary(node: ParsedUnary, local_table: LocalTable) -> CheckedUnary:
-    raise NotImplementedError()
+    checked_subject = check_expr(node.subject, local_table)
+    if node.operation == ParsedUnaryOperations.Not:
+        if checked_subject.expr_value_type() == CheckedTypeTypes.Int:
+            return CheckedUnary(
+                checked_subject,
+                CheckedUnaryOperations.Not,
+                checked_subject.expr_value_type(),
+            )
+        else:
+            raise Exception("unsupported type in unary operation")
+    else:
+        raise Exception("unsupported unary operation")
 
 
 def check_binary(node: ParsedBinary, local_table: LocalTable) -> CheckedBinary:
-    raise NotImplementedError()
+    checked_left = check_expr(node.left, local_table)
+    checked_right = check_expr(node.right, local_table)
+    type_combo = (
+        checked_left.expr_value_type().type_type(),
+        checked_right.expr_value_type().type_type(),
+    )
+    if node.operation == ParsedBinaryOperations.Add:
+        if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.Add,
+                CheckedIntType(),
+            )
+        else:
+            print(f"types = {type_combo}")
+            raise Exception("unsupported types for binary add operation")
+    elif node.operation == ParsedBinaryOperations.Subtract:
+        if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.Subtract,
+                CheckedIntType(),
+            )
+        else:
+            raise Exception("unsupported types for binary add operation")
+    elif node.operation == ParsedBinaryOperations.Multiply:
+        if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.Multiply,
+                CheckedIntType(),
+            )
+        else:
+            raise Exception("unsupported types for binary add operation")
+    elif node.operation == ParsedBinaryOperations.EQ:
+        if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.EQ,
+                CheckedIntType(),
+            )
+        else:
+            raise Exception("unsupported types for binary add operation")
+    elif node.operation == ParsedBinaryOperations.NE:
+        if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.NE,
+                CheckedIntType(),
+            )
+        else:
+            raise Exception("unsupported types for binary add operation")
+    elif node.operation == ParsedBinaryOperations.LT:
+        if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.LT,
+                CheckedIntType(),
+            )
+        else:
+            raise Exception("unsupported types for binary add operation")
+    elif node.operation == ParsedBinaryOperations.GT:
+        if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.GT,
+                CheckedIntType(),
+            )
+        else:
+            raise Exception("unsupported types for binary add operation")
+    elif node.operation == ParsedBinaryOperations.LTE:
+        if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.LTE,
+                CheckedIntType(),
+            )
+        else:
+            raise Exception("unsupported types for binary add operation")
+    elif node.operation == ParsedBinaryOperations.GTE:
+        if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.GTE,
+                CheckedIntType(),
+            )
+        else:
+            raise Exception("unsupported types for binary add operation")
+    else:
+        raise Exception("unsupported binary operation")
 
 
 def check_assign(node: ParsedAssign, local_table: LocalTable) -> CheckedAssign:

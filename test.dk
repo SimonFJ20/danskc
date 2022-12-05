@@ -1,28 +1,32 @@
-KOMMENTER
+
 funktion hello(a: heltal, b: heltal) -> heltal
     tilbagesend a + b
 slut
 
-hvis a == 4 så
-    print("hello world\n")
-ellers
-    lad b: text = "bruh moment"
-    lad c: heltal = 4
-    hello(3, c)
-slut
-
-
-mens a <= 4 så
-    tilbagesend
-slut
-FÆRDIG
-
 
 funktion test() -> heltal
-    tilbagesend 1
+    tilbagesend 1 + 2
 slut
 
-funktion main() -> heltal
+funktion begynd() -> heltal
     test()
+
+    lad a: heltal = 3
+
+    hvis a == 4 så
+        print("hello world\n")
+    ellers
+        lad b: tekst = "bruh moment"
+        lad c: heltal = 4
+        hello(3, c)
+    slut
+
+
+    mens a <= 4 så
+        tilbagesend
+    slut
+
+
+
     tilbagesend 0
 slut
