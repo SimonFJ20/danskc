@@ -1,7 +1,7 @@
 
-# danskc for virtual_computer
+# danskc for virtual-computer
 
-This is an assembler and future danskc code generator for camper000's custom instruction set virtual machine: [virtual-computer](https://github.com/camper0008/virtual-computer);
+This is an assembler and future danskc code generator for camper0008's custom instruction set virtual machine: [virtual-computer](https://github.com/camper0008/virtual-computer);
 
 ## Assembler
 
