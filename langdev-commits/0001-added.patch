@@ -1,0 +1,25 @@
+From 6ce918edee14441b76cb47bddaee54497bcafbc4 Mon Sep 17 00:00:00 2001
+From: Simon From Jakobsen <simonfromjakobsen@gmail.com>
+Date: Thu, 3 Nov 2022 09:47:08 +0100
+Subject: [PATCH] added '.'
+
+---
+ danskc/virtual-computer/test.asm | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/danskc/virtual-computer/test.asm b/danskc/virtual-computer/test.asm
+index e359153..c9da16d 100644
+--- a/danskc/virtual-computer/test.asm
++++ b/danskc/virtual-computer/test.asm
+@@ -60,7 +60,7 @@ clear_screen:
+     load r1, r5 ; m
+     lt ra, r1
+     xor ra, [iv + 1]
+-    jnz loop_break, ra
++    jnz .loop_break, ra
+ 
+     ; vram_offset[i] = ' '
+     load ra, r6 ; i
+-- 
+2.25.1
+

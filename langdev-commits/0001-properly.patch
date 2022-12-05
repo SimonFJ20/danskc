@@ -1,0 +1,71 @@
+From 616a2f56113741cb08b36689d6bf2ac4a7aa834e Mon Sep 17 00:00:00 2001
+From: SimonFJ20 <simonfromjakobsen@gmail.com>
+Date: Fri, 28 Oct 2022 19:13:17 +0200
+Subject: [PATCH] properly
+
+---
+ danskc/runtime/src/main.rs | 42 +++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 41 insertions(+), 1 deletion(-)
+
+diff --git a/danskc/runtime/src/main.rs b/danskc/runtime/src/main.rs
+index 45d677e..78d782b 100644
+--- a/danskc/runtime/src/main.rs
++++ b/danskc/runtime/src/main.rs
+@@ -1,13 +1,53 @@
+ use std::collections::HashMap;
+ 
++enum ObjectValue {
++    Null,
++    Int(i64),
++    Float(f64),
++    String(String),
++    List(Vec<Object>),
++    Dict(HashMap<String, Object>),
++    Clojure(HashMap<String, Object>, usize),
++}
++
+ struct Object {
+     next_link_node: Option<Box<Object>>,
+     gc_marked: bool,
+-    properties: HashMap<String, Object>,
++    value: ObjectValue,
++}
++
++impl Object {
++    pub fn new(value: ObjectValue) -> Self {
++        Self {
++            gc_marked: false,
++            next_link_node: None,
++            value,
++        }
++    }
+ }
+ 
+ enum Instruction {
+     Jump(usize),
++    LoadReg(usize),
++    StoreReg(usize),
++    Push(Object),
++    Pop,
++}
++
++struct VM {
++    program: Vec<Instruction>,
++    stack: Vec<Object>,
++    registers: HashMap<usize, Object>,
++}
++
++impl VM {
++    pub fn new(program: Vec<Instruction>) -> Self {
++        Self {
++            program,
++            stack: Vec::new(),
++            registers: HashMap::new(),
++        }
++    }
+ }
+ 
+ fn main() {
+-- 
+2.25.1
+

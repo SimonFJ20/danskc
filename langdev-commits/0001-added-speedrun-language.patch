@@ -1,0 +1,4475 @@
+From 65b3ce35c968dfa3c8706ad53cad0161acefae9e Mon Sep 17 00:00:00 2001
+From: SimonFJ20 <simonfromjakobsen@gmail.com>
+Date: Mon, 5 Dec 2022 17:01:16 +0100
+Subject: [PATCH] added speedrun-language
+
+---
+ speedrun-language/.gitignore                  |   1 +
+ speedrun-language/.vscode/settings.json       |   5 +
+ speedrun-language/LICENSE                     |  21 +
+ speedrun-language/ast.ts                      | 147 ++++
+ speedrun-language/checker.ts                  | 325 +++++++++
+ speedrun-language/code_generator.ts           | 101 +++
+ .../commits/0001-Create-LICENSE.patch         |  40 ++
+ .../commits/0001-broke-the-build.patch        | 232 ++++++
+ .../commits/0001-checker-checks.patch         | 665 ++++++++++++++++++
+ speedrun-language/commits/0001-init.patch     | 388 ++++++++++
+ .../commits/0001-more-checking.patch          | 169 +++++
+ .../commits/0001-no-more-errors.patch         | 329 +++++++++
+ .../commits/0001-some-generation.patch        | 317 +++++++++
+ .../commits/0001-some-rewriting.patch         | 484 +++++++++++++
+ speedrun-language/commits/0001-stuff.patch    | 150 ++++
+ .../commits/0001-weak-af-typing.patch         | 503 +++++++++++++
+ speedrun-language/commits/0001-yes.patch      |  27 +
+ speedrun-language/grammar.ne                  | 190 +++++
+ speedrun-language/main.ts                     |  39 +
+ speedrun-language/math.splang                 |   3 +
+ speedrun-language/run.sh                      |   1 +
+ speedrun-language/test.splang                 |   6 +
+ speedrun-language/utils.ts                    | 134 ++++
+ 23 files changed, 4277 insertions(+)
+ create mode 100644 speedrun-language/.gitignore
+ create mode 100644 speedrun-language/.vscode/settings.json
+ create mode 100644 speedrun-language/LICENSE
+ create mode 100644 speedrun-language/ast.ts
+ create mode 100644 speedrun-language/checker.ts
+ create mode 100644 speedrun-language/code_generator.ts
+ create mode 100644 speedrun-language/commits/0001-Create-LICENSE.patch
+ create mode 100644 speedrun-language/commits/0001-broke-the-build.patch
+ create mode 100644 speedrun-language/commits/0001-checker-checks.patch
+ create mode 100644 speedrun-language/commits/0001-init.patch
+ create mode 100644 speedrun-language/commits/0001-more-checking.patch
+ create mode 100644 speedrun-language/commits/0001-no-more-errors.patch
+ create mode 100644 speedrun-language/commits/0001-some-generation.patch
+ create mode 100644 speedrun-language/commits/0001-some-rewriting.patch
+ create mode 100644 speedrun-language/commits/0001-stuff.patch
+ create mode 100644 speedrun-language/commits/0001-weak-af-typing.patch
+ create mode 100644 speedrun-language/commits/0001-yes.patch
+ create mode 100644 speedrun-language/grammar.ne
+ create mode 100644 speedrun-language/main.ts
+ create mode 100644 speedrun-language/math.splang
+ create mode 100755 speedrun-language/run.sh
+ create mode 100644 speedrun-language/test.splang
+ create mode 100644 speedrun-language/utils.ts
+
+diff --git a/speedrun-language/.gitignore b/speedrun-language/.gitignore
+new file mode 100644
+index 0000000..d0bef7c
+--- /dev/null
++++ b/speedrun-language/.gitignore
+@@ -0,0 +1 @@
++*out*
+\ No newline at end of file
+diff --git a/speedrun-language/.vscode/settings.json b/speedrun-language/.vscode/settings.json
+new file mode 100644
+index 0000000..2c7ddc5
+--- /dev/null
++++ b/speedrun-language/.vscode/settings.json
+@@ -0,0 +1,5 @@
++{
++    "deno.enable": true,
++    "deno.lint": true,
++    "deno.unstable": true
++}
+\ No newline at end of file
+diff --git a/speedrun-language/LICENSE b/speedrun-language/LICENSE
+new file mode 100644
+index 0000000..d17a93f
+--- /dev/null
++++ b/speedrun-language/LICENSE
+@@ -0,0 +1,21 @@
++MIT License
++
++Copyright (c) 2022 Simon From Jakobsen
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
+diff --git a/speedrun-language/ast.ts b/speedrun-language/ast.ts
+new file mode 100644
+index 0000000..2cef7ad
+--- /dev/null
++++ b/speedrun-language/ast.ts
+@@ -0,0 +1,147 @@
++import { id_generator, Option } from "./utils.ts";
++
++export abstract class Node {
++    protected constructor(public id: string) {}
++}
++
++export abstract class Statement extends Node {}
++
++export class Block extends Statement {
++    public constructor(public body: Statement[]) {
++        super("Block");
++    }
++}
++
++export class ConstDefinition extends Statement {
++    public constructor(public target: Argument, public value: Expression) {
++        super("ConstDefinition");
++    }
++}
++
++export class LetDeclaration extends Statement {
++    public constructor(
++        public target: Argument,
++        public value: Option<Expression>,
++    ) {
++        super("LetDeclaration");
++    }
++}
++
++export class If extends Statement {
++    public constructor(public condition: Expression, public body: Statement) {
++        super("If");
++    }
++}
++
++export class IfElse extends Statement {
++    public constructor(
++        public condition: Expression,
++        public truhty: Statement,
++        public falsy: Statement,
++    ) {
++        super("IfElse");
++    }
++}
++
++export class While extends Statement {
++    public constructor(public condition: Expression, public body: Statement) {
++        super("While");
++    }
++}
++
++export class ExpressionStatement extends Statement {
++    public constructor(public expression: Expression) {
++        super("ExpressionStatement");
++    }
++}
++
++export abstract class Type extends Node {}
++
++export class VoidType extends Type {
++    public constructor() {
++        super("VoidType");
++    }
++}
++
++export class IntType extends Type {
++    public constructor() {
++        super("IntType");
++    }
++}
++
++export class StringType extends Type {
++    public constructor() {
++        super("StringType");
++    }
++}
++
++export class FunctionType extends Type {
++    public constructor(public args: Type[], public return_type: Type) {
++        super("FunctionType");
++    }
++}
++
++export abstract class Expression extends Node {}
++
++export class Function extends Expression {
++    private static fid_generator = id_generator();
++    public fid = Function.fid_generator();
++
++    public constructor(
++        public args: Argument[],
++        public return_type: Option<Type>,
++        public body: Statement,
++    ) {
++        super("Function");
++    }
++}
++
++export class Argument extends Node {
++    public constructor(public name: string, public type: Type) {
++        super("Argument");
++    }
++}
++
++export enum OperationType {
++    Add,
++    Subtract,
++    Multiply,
++    Divide,
++    Modulus,
++}
++
++export class BinaryOperation extends Expression {
++    public constructor(
++        public operation: OperationType,
++        public left: Value,
++        public right: Value,
++    ) {
++        super("BinaryOperation");
++    }
++}
++
++export class Call extends Expression {
++    public constructor(public callee: Expression, public args: Expression[]) {
++        super("Call");
++    }
++}
++
++export abstract class Value extends Expression {}
++
++export class Int extends Value {
++    public constructor(public value: number) {
++        super("Int");
++    }
++}
++
++export class String extends Value {
++    public constructor(public value: string) {
++        super("String");
++    }
++}
++
++export class Accessor extends Value {
++    public constructor(public name: string) {
++        super("Accessor");
++    }
++}
+diff --git a/speedrun-language/checker.ts b/speedrun-language/checker.ts
+new file mode 100644
+index 0000000..a3a5379
+--- /dev/null
++++ b/speedrun-language/checker.ts
+@@ -0,0 +1,325 @@
++import * as ast from "./ast.ts";
++import { Err, force, match, Ok, Or, qmark, Result, _ } from "./utils.ts";
++
++export abstract class Type {
++    protected constructor(public id: string) {}
++}
++
++export class VoidType extends Type {
++    public constructor() {
++        super("VoidType");
++    }
++}
++
++export class IntType extends Type {
++    public constructor() {
++        super("IntType");
++    }
++}
++
++export class StringType extends Type {
++    public constructor() {
++        super("StringType");
++    }
++}
++
++export class FunctionType extends Type {
++    public constructor(public args: Type[], public return_type: Type) {
++        super("FunctionType");
++    }
++}
++
++const types_compatible = (a: Type, b: Type): boolean => {
++    // prettier-ignore
++    return match(a.id, [
++        ["VoidType", () => b.id === "VoidType"],
++        ["IntType", () => b.id === "IntType"],
++        ["FunctionType", () => match(b.id, [
++            ["FunctionType", () => function_types_compatible(force(a), force(b))],
++            [_, () => false]
++        ])],
++        [_, () => {
++            throw new Error(
++                `types_compatible unexhaustive '${a.id}' and '${b.id}'`,
++            );
++        }]
++    ]);
++};
++
++const function_types_compatible = (
++    a: FunctionType,
++    b: FunctionType,
++): boolean => {
++    if (a.args.length !== b.args.length) return false;
++    else return true;
++};
++
++export type Symbol = {
++    name: string;
++    type: Type;
++    mutable: boolean;
++};
++
++export class SymbolTable {
++    private symbols = new Map<string, Symbol>();
++    private children: SymbolTable[] = [];
++
++    public constructor(private parent: SymbolTable | null = null) {}
++
++    public add_child(child: SymbolTable) {
++        this.children.push(child);
++    }
++
++    public declared_locally(name: string): boolean {
++        return this.symbols.has(name);
++    }
++
++    public declared(name: string): boolean {
++        return (
++            this.declared_locally(name) ||
++            (this.parent?.declared(name) ?? false)
++        );
++    }
++
++    public get_locally(name: string): Result<Symbol, string> {
++        const symbol = this.symbols.get(name);
++        return symbol ? Ok(symbol) : Err("cannot find symbol");
++    }
++
++    public get(name: string): Result<Symbol, string> {
++        return this.get_locally(name).match(
++            (v) => Ok(v),
++            (e) => (this.parent ? this.parent.get(name) : Err(e)),
++        );
++    }
++
++    public set(symbol: Symbol) {
++        this.symbols.set(symbol.name, symbol);
++    }
++}
++
++export type Function = {
++    id: number;
++    node: ast.Function;
++    type: FunctionType;
++    symbol_table: SymbolTable;
++};
++
++export type CheckerError = string;
++
++export type CheckerResult = {
++    st: SymbolTable;
++    functions: Function[];
++    errors: CheckerError[];
++};
++
++export class Checker {
++    private symbol_table!: SymbolTable;
++    private symbol_table_history!: SymbolTable[];
++    private functions!: Function[];
++    private errors!: CheckerError[];
++
++    public check_program(program: ast.Statement[]): CheckerResult {
++        this.symbol_table = new SymbolTable();
++        this.symbol_table_history = [];
++        this.functions = [];
++        this.errors = [];
++        this.check_statements(program);
++        return {
++            st: this.symbol_table,
++            functions: this.functions,
++            errors: this.errors,
++        };
++    }
++
++    public check_statements(nodes: ast.Statement[]): Type {
++        return (
++            nodes
++                .map((v) =>
++                    this.check_statement(v).match(
++                        (v) => v,
++                        (e) => {
++                            this.errors.push(e);
++                            return null;
++                        },
++                    ),
++                )
++                .find((v) => v && v.id !== "VoidType") ?? new VoidType()
++        );
++    }
++
++    public check_statement(node: ast.Statement): Result<Type, CheckerError> {
++        switch (node.id) {
++            case "Block":
++                return Ok(this.check_block(force(node)));
++            case "ConstDefinition":
++                return this.check_const_definition(force(node));
++            case "ExpressionStatement":
++                return this.check_expression_statement(force(node));
++            default:
++                throw new Error(`unchecked statement '${node.id}'`);
++        }
++    }
++
++    public check_block(node: ast.Block): Type {
++        this.branch_symbol_table();
++        const type = this.check_statements(node.body);
++        this.merge_symbol_table();
++        return type;
++    }
++
++    public check_const_definition(
++        node: ast.ConstDefinition,
++    ): Result<Type, CheckerError> {
++        if (this.symbol_table.declared_locally(node.target.name))
++            return Err(`multiple definitions of symbol '${node.target.name}'`);
++        const value_type_result = this.check_expression(node.value);
++        if (value_type_result.is_err()) return value_type_result.transform();
++        const value_type = value_type_result.unwrap();
++        if (node.target.type && !types_compatible(node.target.type, value_type))
++            return Err("types incompatible");
++        this.symbol_table.set({
++            name: node.target.name,
++            type: value_type,
++            mutable: false,
++        });
++        return Ok(new VoidType());
++    }
++
++    public check_expression_statement(
++        node: ast.ExpressionStatement,
++    ): Result<Type, CheckerError> {
++        this.check_expression(node.expression);
++        return Ok(new VoidType());
++    }
++
++    public check_expression(node: ast.Expression): Result<Type, CheckerError> {
++        switch (node.id) {
++            case "Function":
++                return this.check_function(force(node));
++            case "BinaryOperation":
++                return this.check_binary_operation(force(node));
++            case "Call":
++                return this.check_call(force(node));
++            case "Accessor":
++                return this.check_accessor(force(node));
++            case "Int":
++                return Ok(new IntType());
++            default:
++                throw new Error(`unchecked expression '${node.id}'`);
++        }
++    }
++
++    public check_function(node: ast.Function): Result<Type, CheckerError> {
++        this.branch_symbol_table();
++        for (const arg of node.args) {
++            if (!this.symbol_table.declared_locally(arg.name))
++                this.symbol_table.set({
++                    name: arg.name,
++                    type: arg.type,
++                    mutable: true,
++                });
++            else return Err(`multiple definitions of argument '${arg.name}'`);
++        }
++        this.branch_symbol_table();
++        const decl_return_type = node.return_type.match(
++            (v) => this.check_type(v).expect("_"),
++            () => new VoidType(),
++        );
++        const body_return_type_result = this.check_statement(node.body);
++        if (!body_return_type_result.is_ok())
++            return body_return_type_result.transform();
++        const body_return_type =
++            body_return_type_result.unwrap() ?? new VoidType();
++        if (!types_compatible(decl_return_type, body_return_type))
++            return Err("incompatible returntypes");
++        this.merge_symbol_table();
++        this.merge_symbol_table();
++        const type = new FunctionType(
++            node.args.map((arg) => this.check_type(arg.type).expect("_")),
++            decl_return_type,
++        );
++        this.functions.push({
++            id: node.fid,
++            node,
++            type,
++            symbol_table: this.symbol_table,
++        });
++        return Ok(type);
++    }
++
++    public check_binary_operation(
++        node: ast.BinaryOperation,
++    ): Result<Type, CheckerError> {
++        return qmark(this.check_expression(node.left), (left_type) => {
++            return qmark(this.check_expression(node.right), (right_type) => {
++                const impossible_operation_string = () =>
++                    `impossible operation: '${left_type.id} + ${right_type.id}'`;
++
++                // prettier-ignore
++                return match(node.operation, [
++                    [ast.OperationType.Add, () => match(left_type.id, [
++                        ["IntType", () => match(right_type.id, [
++                            ["IntType", () => Ok(left_type)],
++                            [_, () => Err(impossible_operation_string())], 
++                        ])],
++                        ["StringType", () => match(right_type.id, [
++                            ["StringType", () => Ok(left_type)],
++                            [_, () => Err(impossible_operation_string())], 
++                        ])],
++                        [_, () => Err(impossible_operation_string())],
++                    ])],
++                    [ast.OperationType.Subtract, Or],
++                    [ast.OperationType.Multiply, Or],
++                    [ast.OperationType.Divide, Or],
++                    [ast.OperationType.Modulus, () => match(left_type.id, [
++                        ["IntType", () => match(right_type.id, [
++                            ["IntType", () => Ok(left_type)],
++                            [_, () => Err(impossible_operation_string())], 
++                        ])],
++                        [_, () => Err(impossible_operation_string())],
++                    ])],
++                ]);
++            });
++        });
++    }
++
++    public check_call(node: ast.Call): Result<Type, CheckerError> {
++        const callee_type_result = this.check_expression(node.callee);
++        if (!callee_type_result.is_ok()) return callee_type_result.transform();
++        const callee_type = callee_type_result.unwrap() as FunctionType;
++        if (callee_type.id !== "FunctionType")
++            return Err("cannot call non-function type");
++        else if (callee_type.args.length !== node.args.length)
++            return Err("wrong amount of arguments");
++        else return Ok(callee_type.return_type);
++    }
++
++    public check_accessor(node: ast.Accessor): Result<Type, CheckerError> {
++        const symbol = this.symbol_table
++            .get(node.name)
++            .expect(`symbol to be declared '${node.name}'`);
++        return Ok(symbol.type);
++    }
++
++    public check_type(node: ast.Type): Result<Type, CheckerError> {
++        switch (node.id) {
++            case "IntType":
++                return Ok(new IntType());
++            default:
++                throw new Error(`unchecked type '${node.id}'`);
++        }
++    }
++
++    private branch_symbol_table() {
++        this.symbol_table_history.push(this.symbol_table);
++        this.symbol_table = new SymbolTable(this.symbol_table);
++    }
++
++    private merge_symbol_table() {
++        const symbol_table = this.symbol_table_history.pop();
++        if (!symbol_table) throw new Error("no symbol table history");
++        symbol_table.add_child(this.symbol_table);
++        this.symbol_table = symbol_table;
++    }
++}
+diff --git a/speedrun-language/code_generator.ts b/speedrun-language/code_generator.ts
+new file mode 100644
+index 0000000..dc07292
+--- /dev/null
++++ b/speedrun-language/code_generator.ts
+@@ -0,0 +1,101 @@
++import { SymbolTable, Function, Type } from "./checker.ts";
++import * as ast from "./ast.ts";
++import { force, match, _ } from "./utils.ts";
++
++export type Generator = {
++    st: SymbolTable;
++    functions: Function[];
++};
++
++export const generate = (self: Generator, program: ast.Statement[]): string => {
++    const code =
++        "#include <stdio.h>\n" +
++        "#include <stdlib.h>\n" +
++        "#include <stdint.h>\n" +
++        "#include <stdbool.h>\n" +
++        "#include <string.h>\n" +
++        "int main()\n{\n" +
++        generate_statements(self, program) +
++        "\n}\n";
++    return code;
++};
++
++const generate_statements = (
++    self: Generator,
++    nodes: ast.Statement[],
++): string => {
++    return nodes.map((node) => generate_statement(self, node)).join("\n");
++};
++
++const generate_statement = (self: Generator, node: ast.Statement): string => {
++    // prettier-ignore
++    return match(node.id, [
++        ["ConstDefinition", () => generate_const_definition(self, force(node))],
++        [_, () => {
++            throw new Error(`code generation not implemented for statement '${node.id}'`);
++        }]
++    ]);
++};
++
++const generate_type = (self: Generator, type: Type): string => {
++    // prettier-ignore
++    return match(type.id, [
++        ["FunctionType", () => "void*"],
++        ["IntType", () => "int"],
++        [_, () => {
++            throw new Error(`code generation not implemented for type '${type.id}'`);
++        }]
++    ]);
++};
++
++const generate_const_definition = (
++    self: Generator,
++    node: ast.ConstDefinition,
++): string => {
++    const type = generate_type(
++        self,
++        self.st.get(node.target.name).expect("_").type,
++    );
++    const name = node.target.name;
++    const value = generate_expression(self, node.value);
++    return `${type} ${name} = ${value};`;
++};
++
++const generate_expression = (self: Generator, node: ast.Expression): string => {
++    // prettier-ignore
++    return match(node.id, [
++        ["Function", () => generate_function(self, force(node))],
++        ["BinaryOperation", () => generate_binary_operation(self, force(node))],
++        ["Accessor", () => generate_accessor(force(node))],
++        ["Int", () => generate_int(force(node))],
++        [_, () => {
++            throw new Error(`code generation not implemented for expression '${node.id}'`);
++        }]
++    ]);
++};
++
++const generate_function = (self: Generator, node: ast.Function): string => {
++    // instead of checker(ast) -> ast + total perspective symbol table
++    // do checker(ast) -> checked(ast) + node specific symbol table
++    throw new Error("_");
++};
++
++const generate_binary_operation = (
++    self: Generator,
++    node: ast.BinaryOperation,
++): string => {
++    const operator = match(node.operation, [
++        [ast.OperationType.Add, () => "+"],
++        [ast.OperationType.Subtract, () => "-"],
++        [ast.OperationType.Multiply, () => "*"],
++        [ast.OperationType.Divide, () => "/"],
++        [ast.OperationType.Modulus, () => "%"],
++    ]);
++    const left = generate_expression(self, node.left);
++    const right = generate_expression(self, node.right);
++    return `(${left} ${operator} ${right})`;
++};
++
++const generate_accessor = (node: ast.Accessor): string => node.name;
++
++const generate_int = (node: ast.Int): string => node.value.toString();
+diff --git a/speedrun-language/commits/0001-Create-LICENSE.patch b/speedrun-language/commits/0001-Create-LICENSE.patch
+new file mode 100644
+index 0000000..e65cafa
+--- /dev/null
++++ b/speedrun-language/commits/0001-Create-LICENSE.patch
+@@ -0,0 +1,40 @@
++From cae7fa0df676a11fe1cfca42b49c9526f5a46e2d Mon Sep 17 00:00:00 2001
++From: Simon From Jakobsen <simonfromjakobsen@gmail.com>
++Date: Tue, 21 Jun 2022 03:49:40 +0200
++Subject: [PATCH] Create LICENSE
++
++---
++ LICENSE | 21 +++++++++++++++++++++
++ 1 file changed, 21 insertions(+)
++ create mode 100644 LICENSE
++
++diff --git a/LICENSE b/LICENSE
++new file mode 100644
++index 0000000..d17a93f
++--- /dev/null
+++++ b/LICENSE
++@@ -0,0 +1,21 @@
+++MIT License
+++
+++Copyright (c) 2022 Simon From Jakobsen
+++
+++Permission is hereby granted, free of charge, to any person obtaining a copy
+++of this software and associated documentation files (the "Software"), to deal
+++in the Software without restriction, including without limitation the rights
+++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+++copies of the Software, and to permit persons to whom the Software is
+++furnished to do so, subject to the following conditions:
+++
+++The above copyright notice and this permission notice shall be included in all
+++copies or substantial portions of the Software.
+++
+++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+++SOFTWARE.
++-- 
++2.25.1
++
+diff --git a/speedrun-language/commits/0001-broke-the-build.patch b/speedrun-language/commits/0001-broke-the-build.patch
+new file mode 100644
+index 0000000..5e275ad
+--- /dev/null
++++ b/speedrun-language/commits/0001-broke-the-build.patch
+@@ -0,0 +1,232 @@
++From 5826e5ee47f7ed63e1d19995bc88a2843215feab Mon Sep 17 00:00:00 2001
++From: SimonFJ20 <simonfromjakobsen@gmail.com>
++Date: Wed, 29 Jun 2022 04:36:37 +0200
++Subject: [PATCH] broke the build
++
++---
++ ast.ts                        | 18 ++++++++++++++----
++ compile_to_c.ts => checker.ts | 23 +++++++++++++++--------
++ grammar.ne                    | 33 +++++++++++++++++++++++----------
++ main.ts                       |  3 +--
++ test.splang                   |  2 +-
++ utils.ts                      |  9 +++++++++
++ 6 files changed, 63 insertions(+), 25 deletions(-)
++ rename compile_to_c.ts => checker.ts (93%)
++ create mode 100644 utils.ts
++
++diff --git a/ast.ts b/ast.ts
++index a3dac44..99a9013 100644
++--- a/ast.ts
+++++ b/ast.ts
++@@ -10,9 +10,9 @@ export class Block extends Statement {
++     }
++ }
++ 
++-export class ConstDeclaration extends Statement {
+++export class ConstDefinition extends Statement {
++     public constructor(public target: Argument, public value: Expression) {
++-        super("ConstDeclaration");
+++        super("ConstDefinition");
++     }
++ }
++ 
++@@ -46,6 +46,12 @@ export class While extends Statement {
++ 
++ export abstract class Type extends Statement {}
++ 
+++export class VoidType extends Type {
+++    public constructor() {
+++        super("VoidType");
+++    }
+++}
+++
++ export class IntType extends Type {
++     public constructor() {
++         super("IntType");
++@@ -59,7 +65,7 @@ export class StringType extends Type {
++ }
++ 
++ export class FunctionType extends Type {
++-    public constructor() {
+++    public constructor(args: Type[], returnType: Type) {
++         super("FunctionType");
++     }
++ }
++@@ -67,7 +73,11 @@ export class FunctionType extends Type {
++ export abstract class Expression extends Statement {}
++ 
++ export class Function extends Expression {
++-    public constructor(public args: Argument[], public body: Statement) {
+++    public constructor(
+++        public args: Argument[],
+++        public body: Statement,
+++        public fid: number,
+++    ) {
++         super("Function");
++     }
++ }
++diff --git a/compile_to_c.ts b/checker.ts
++similarity index 93%
++rename from compile_to_c.ts
++rename to checker.ts
++index adb0aa0..25ff110 100644
++--- a/compile_to_c.ts
+++++ b/checker.ts
++@@ -1,23 +1,30 @@
++ import * as ast from "./ast.ts";
++-
++-export const compileToC = (program: ast.Statement[]): string => {
++-    const symbolTable = new Checker().checkProgram(program);
++-    console.log(JSON.stringify(symbolTable, null, 4));
++-    return "";
+++import { idGenerator } from "./utils.ts";
+++
+++type Type<ID extends string = string> = { id: ID };
+++type Int = Type<"int">;
+++type String = Type<"string">;
+++type Function = Type<"function"> & {
+++    args: Type[];
+++    returnType: Type;
++ };
++ 
++-type ValueType = "int" | "string" | "function";
++-
++ type Symbol = {
++-    type: ValueType;
+++    type: Type;
+++    symbolTable: SymbolTable;
++ };
++ 
++ class SymbolTable {
++     private names: { [key: string]: Symbol } = {};
++     private functions: ast.Function[] = [];
+++    private children: SymbolTable[] = [];
++ 
++     public constructor(private parent?: SymbolTable) {}
++ 
+++    public addChild(child: SymbolTable) {
+++        this.children.push(child);
+++    }
+++
++     public setName(name: string, symbol: Symbol) {
++         this.names[name] = symbol;
++     }
++diff --git a/grammar.ne b/grammar.ne
++index b0df1d5..3eedb39 100644
++--- a/grammar.ne
+++++ b/grammar.ne
++@@ -2,7 +2,8 @@
++ 
++ @{%
++ import moo from "https://deno.land/x/moo@0.5.1.1/index.ts";
++-import * as ast from './ast.ts'
+++import * as ast from './ast.ts';
+++import {idGenerator} from './utils.ts';
++ const lexer = moo.compile({
++     nl:         {match: /[\n;]+/, lineBreaks: true},
++     ws:         /[ \t]+/,
++@@ -62,6 +63,9 @@ const lexer = moo.compile({
++     qmark:      '?',
++     colon:      ':',
++ });
+++
+++const fid = idGenerator();
+++
++ %}
++ 
++ @lexer lexer
++@@ -82,7 +86,7 @@ block       ->  "{" statements "}"
++                     {% v => new ast.Block(v[1]) %}
++ 
++ const_declaration   ->  "const" __ argument _ "=" _ expression
++-                            {% v => new ast.ConstDeclaration(v[2], v[6]) %}
+++                            {% v => new ast.ConstDefinition(v[2], v[6]) %}
++ 
++ let_declaration     ->  "let" __ argument _ "=" _ expression
++                             {% v => new ast.LetDeclaration(v[2], v[6]) %}
++@@ -99,20 +103,29 @@ while       ->  "while" _ "(" _ expression _ ")" _ statement
++ expressions ->  (_ expression (_ "," _ expression):*):? _
++                     {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
++ 
++-type        ->  "int"
++-                        {% v => new ast.IntType() %}
++-            |   "string"
++-                        {% v => new ast.StringType() %}
++-            |   "function"
++-                        {% v => new ast.FunctionType() %}
+++type_list   ->  (_ type (_ "," _ type):*):? _
+++                    {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
+++
+++type        ->  function_type   {% id %}
+++            |   type_literal    {% id %}
+++
+++function_type   ->  "(" type_list ")" _ "=>" _ type
+++                        {% v => new ast.FunctionType(v[1], v[6]) %}
+++
+++type_literal    ->  "int"
+++                            {% v => new ast.IntType() %}
+++                |   "string"
+++                            {% v => new ast.IntType() %}
+++                |   "void"
+++                            {% v => new ast.VoidType() %}
++ 
++ expression  ->  function        {% id %}
++             |   precedence_1    {% id %}
++ 
++ function    ->  "(" arguments ")" _ block
++-                    {% v => new ast.Function(v[1], v[4]) %}
+++                    {% v => new ast.Function(v[1], v[4], fid()) %}
++             |   "(" arguments ")" _ "=>" _ expression
++-                    {% v => new ast.Function(v[1], v[6]) %}
+++                    {% v => new ast.Function(v[1], v[6], fid()) %}
++ 
++ arguments   ->  (_ argument (_ "," _ argument):*):? _
++                     {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
++diff --git a/main.ts b/main.ts
++index 80b09bd..3f532a6 100644
++--- a/main.ts
+++++ b/main.ts
++@@ -2,8 +2,8 @@ import {
++     Grammar,
++     Parser,
++ } from "https://deno.land/x/nearley@2.19.7-deno/mod.ts";
++-import { compileToC } from "./compile_to_c.ts";
++ import compiledGrammar from "./grammar.out.ts";
+++import { idGenerator } from "./utils.ts";
++ 
++ const parse = (text: string) => {
++     const parser = new Parser(Grammar.fromCompiled(compiledGrammar));
++@@ -16,4 +16,3 @@ const text = await Deno.readTextFile(Deno.args[0]);
++ const res = parse(text);
++ 
++ console.log(JSON.stringify(res, null, "│   "));
++-console.log(compileToC(res));
++diff --git a/test.splang b/test.splang
++index 24467b5..d34a1e2 100644
++--- a/test.splang
+++++ b/test.splang
++@@ -1,5 +1,5 @@
++ 
++-const test: function = (hello: int) {
+++const test: () => void = (hello: int) {
++     hello + 1
++ }
++ 
++diff --git a/utils.ts b/utils.ts
++new file mode 100644
++index 0000000..7ae7f3a
++--- /dev/null
+++++ b/utils.ts
++@@ -0,0 +1,9 @@
+++export const idGenerator = () =>
+++    (
+++        (ids) => () =>
+++            ids.next().value!
+++    )(
+++        (function* () {
+++            for (let i = 0; true; i++) yield i;
+++        })(),
+++    );
++-- 
++2.25.1
++
+diff --git a/speedrun-language/commits/0001-checker-checks.patch b/speedrun-language/commits/0001-checker-checks.patch
+new file mode 100644
+index 0000000..4346831
+--- /dev/null
++++ b/speedrun-language/commits/0001-checker-checks.patch
+@@ -0,0 +1,665 @@
++From aeca278b5086702055b4ba0d499e9ae37e2ec1eb Mon Sep 17 00:00:00 2001
++From: SimonFJ20 <simonfromjakobsen@gmail.com>
++Date: Sat, 2 Jul 2022 03:20:18 +0200
++Subject: [PATCH] checker checks
++
++---
++ ast.ts      |   8 +-
++ checker.ts  | 256 +++++++++++++++++++++++++++++++++++-----------------
++ grammar.ne  |  10 +-
++ main.ts     |   6 +-
++ test.splang |   2 +-
++ utils.ts    | 105 +++++++++++++++++++--
++ 6 files changed, 282 insertions(+), 105 deletions(-)
++
++diff --git a/ast.ts b/ast.ts
++index 3fd01b2..40be458 100644
++--- a/ast.ts
+++++ b/ast.ts
++@@ -1,3 +1,5 @@
+++import { Option } from "./utils.ts";
+++
++ export abstract class Node {
++     protected constructor(public id: string) {}
++ }
++@@ -19,7 +21,7 @@ export class ConstDefinition extends Statement {
++ export class LetDeclaration extends Statement {
++     public constructor(
++         public target: Argument,
++-        public value: Expression | null,
+++        public value: Option<Expression>,
++     ) {
++         super("LetDeclaration");
++     }
++@@ -74,7 +76,7 @@ export class StringType extends Type {
++ }
++ 
++ export class FunctionType extends Type {
++-    public constructor(public args: Type[], public returnType: Type) {
+++    public constructor(public args: Type[], public return_type: Type) {
++         super("FunctionType");
++     }
++ }
++@@ -84,7 +86,7 @@ export abstract class Expression extends Statement {}
++ export class Function extends Expression {
++     public constructor(
++         public args: Argument[],
++-        public returnType: Type | null,
+++        public return_type: Option<Type>,
++         public body: Statement,
++     ) {
++         super("Function");
++diff --git a/checker.ts b/checker.ts
++index 11ca83c..0526a7e 100644
++--- a/checker.ts
+++++ b/checker.ts
++@@ -1,10 +1,16 @@
++ import * as ast from "./ast.ts";
++-import { Err, force, Ok, Result } from "./utils.ts";
+++import { Err, force, match, Ok, Or, qmark, Result, _ } from "./utils.ts";
++ 
++ export abstract class Type {
++     protected constructor(public id: string) {}
++ }
++ 
+++export class VoidType extends Type {
+++    public constructor() {
+++        super("VoidType");
+++    }
+++}
+++
++ export class IntType extends Type {
++     public constructor() {
++         super("IntType");
++@@ -18,24 +24,31 @@ export class StringType extends Type {
++ }
++ 
++ export class FunctionType extends Type {
++-    public constructor(public args: Type[], public returnType: Type) {
+++    public constructor(public args: Type[], public return_type: Type) {
++         super("FunctionType");
++     }
++ }
++ 
++-const typesCompatible = (a: Type, b: Type): boolean => {
++-    switch (a.id) {
++-        case "FunctionType":
++-            if (b.id !== "FunctionType") return false;
++-            else return functionTypesCompatible(force(a), force(b));
++-        default:
+++const types_compatible = (a: Type, b: Type): boolean => {
+++    // prettier-ignore
+++    return match(a.id, [
+++        ["VoidType", () => b.id === "VoidType"],
+++        ["FunctionType", () => match(b.id, [
+++            ["FunctionType", () => function_types_compatible(force(a), force(b))],
+++            [_, () => false]
+++        ])],
+++        [_, () => {
++             throw new Error(
++-                `typesCompatible unexhaustive '${a.id}' and '${b.id}'`,
+++                `types_compatible unexhaustive '${a.id}' and '${b.id}'`,
++             );
++-    }
+++        }]
+++    ]);
++ };
++ 
++-const functionTypesCompatible = (a: FunctionType, b: FunctionType): boolean => {
+++const function_types_compatible = (
+++    a: FunctionType,
+++    b: FunctionType,
+++): boolean => {
++     if (a.args.length !== b.args.length) return false;
++     else return true;
++ };
++@@ -50,31 +63,32 @@ export class SymbolTable {
++     private symbols = new Map<string, Symbol>();
++     private children: SymbolTable[] = [];
++ 
++-    public constructor(private parent?: SymbolTable) {}
+++    public constructor(private parent: SymbolTable | null = null) {}
++ 
++-    public addChild(child: SymbolTable) {
+++    public add_child(child: SymbolTable) {
++         this.children.push(child);
++     }
++ 
++-    public declaredLocally(name: string): boolean {
+++    public declared_locally(name: string): boolean {
++         return this.symbols.has(name);
++     }
++ 
++     public declared(name: string): boolean {
++         return (
++-            this.declaredLocally(name) || (this.parent?.declared(name) ?? false)
+++            this.declared_locally(name) ||
+++            (this.parent?.declared(name) ?? false)
++         );
++     }
++ 
++-    public getLocally(name: string): Result<Symbol, string> {
+++    public get_locally(name: string): Result<Symbol, string> {
++         const symbol = this.symbols.get(name);
++         return symbol ? Ok(symbol) : Err("cannot find symbol");
++     }
++ 
++     public get(name: string): Result<Symbol, string> {
++-        return this.getLocally(name).match(
+++        return this.get_locally(name).match(
++             (v) => Ok(v),
++-            (e) => Err(e),
+++            (e) => (this.parent ? this.parent.get(name) : Err(e)),
++         );
++     }
++ 
++@@ -86,126 +100,202 @@ export class SymbolTable {
++ export type Function = {
++     node: ast.Function;
++     type: FunctionType;
++-    symbolTable: SymbolTable;
+++    symbol_table: SymbolTable;
++ };
++ 
++ export type CheckerError = string;
++ 
++ export type CheckerResult = {
++-    symbolTable: SymbolTable;
+++    symbol_table: SymbolTable;
++     functions: Function[];
++     errors: CheckerError[];
++ };
++ 
++ export class Checker {
++-    private symbolTable!: SymbolTable;
++-    private symbolTableHistory!: SymbolTable[];
+++    private symbol_table!: SymbolTable;
+++    private symbol_table_history!: SymbolTable[];
++     private functions!: Function[];
++     private errors!: CheckerError[];
++ 
++-    public checkProgram(program: ast.Statement[]): CheckerResult {
++-        this.symbolTable = new SymbolTable();
++-        this.symbolTableHistory = [];
+++    public check_program(program: ast.Statement[]): CheckerResult {
+++        this.symbol_table = new SymbolTable();
+++        this.symbol_table_history = [];
++         this.functions = [];
++         this.errors = [];
++-        this.checkStatements(program);
+++        this.check_statements(program);
++         return {
++-            symbolTable: this.symbolTable,
+++            symbol_table: this.symbol_table,
++             functions: this.functions,
++             errors: this.errors,
++         };
++     }
++ 
++-    public checkStatements(nodes: ast.Statement[]) {
++-        nodes.forEach((v) =>
++-            this.checkStatement(v).match(
++-                () => {},
++-                (e) => {
++-                    this.errors.push(e);
++-                },
++-            ),
+++    public check_statements(nodes: ast.Statement[]): Type {
+++        return (
+++            nodes
+++                .map((v) =>
+++                    this.check_statement(v).match(
+++                        (v) => v,
+++                        (e) => {
+++                            this.errors.push(e);
+++                            return null;
+++                        },
+++                    ),
+++                )
+++                .find((v) => v && v.id !== "VoidType") ?? new VoidType()
++         );
++     }
++ 
++-    public checkStatement(
++-        node: ast.Statement,
++-    ): Result<Type | null, CheckerError> {
+++    public check_statement(node: ast.Statement): Result<Type, CheckerError> {
++         switch (node.id) {
+++            case "Block":
+++                return Ok(this.check_block(force(node)));
++             case "ConstDefinition":
++-                return this.checkConstDefinition(force(node));
+++                return this.check_const_definition(force(node));
++             case "ExpressionStatement":
++-                return this.checkExpressionStatement(force(node));
+++                return this.check_expression_statement(force(node));
++             default:
++                 throw new Error(`unchecked statement '${node.id}'`);
++         }
++     }
++ 
++-    public checkConstDefinition(
+++    public check_block(node: ast.Block): Type {
+++        this.branch_symbol_table();
+++        const type = this.check_statements(node.body);
+++        this.merge_symbol_table();
+++        return type;
+++    }
+++
+++    public check_const_definition(
++         node: ast.ConstDefinition,
++-    ): Result<Type | null, CheckerError> {
++-        if (this.symbolTable.declaredLocally(node.target.name))
+++    ): Result<Type, CheckerError> {
+++        if (this.symbol_table.declared_locally(node.target.name))
++             return Err(`multiple definitions of symbol '${node.target.name}'`);
++-        const valueTypeResult = this.checkExpression(node.value);
++-        if (!valueTypeResult.ok) return valueTypeResult.transform();
++-        const valueType = valueTypeResult.value!;
++-        if (node.target.type && !typesCompatible(node.target.type, valueType))
+++        const value_type_result = this.check_expression(node.value);
+++        if (value_type_result.is_err()) return value_type_result.transform();
+++        const value_type = value_type_result.unwrap();
+++        if (node.target.type && !types_compatible(node.target.type, value_type))
++             return Err("types incompatible");
++-        this.symbolTable.set({
+++        this.symbol_table.set({
++             name: node.target.name,
++-            type: valueType,
+++            type: value_type,
++             mutable: false,
++         });
++-        return Ok(null);
+++        return Ok(new VoidType());
++     }
++ 
++-    public checkExpressionStatement(
+++    public check_expression_statement(
++         node: ast.ExpressionStatement,
++-    ): Result<Type | null, CheckerError> {
++-        this.checkExpression(node.expression);
++-        return Ok(null);
+++    ): Result<Type, CheckerError> {
+++        this.check_expression(node.expression);
+++        return Ok(new VoidType());
++     }
++ 
++-    public checkExpression(node: ast.Expression): Result<Type, CheckerError> {
+++    public check_expression(node: ast.Expression): Result<Type, CheckerError> {
++         switch (node.id) {
++             case "Function":
++-                return this.checkFunction(force(node));
+++                return this.check_function(force(node));
+++            case "BinaryOperation":
+++                return this.check_binary_operation(force(node));
++             case "Call":
++-                return this.checkCall(force(node));
+++                return this.check_call(force(node));
++             case "Accessor":
++-                return this.checkAccessor(force(node));
+++                return this.check_accessor(force(node));
+++            case "Int":
+++                return Ok(new IntType());
++             default:
++                 throw new Error(`unchecked expression '${node.id}'`);
++         }
++     }
++ 
++-    public checkFunction(node: ast.Function): Result<Type, CheckerError> {
++-        return Ok(
++-            new FunctionType(
++-                node.args.map((arg) => this.checkType(arg.type).unwrap()),
++-                node.returnType!,
++-            ),
+++    public check_function(node: ast.Function): Result<Type, CheckerError> {
+++        this.branch_symbol_table();
+++        for (const arg of node.args) {
+++            if (!this.symbol_table.declared_locally(arg.name))
+++                this.symbol_table.set({
+++                    name: arg.name,
+++                    type: arg.type,
+++                    mutable: true,
+++                });
+++            else return Err(`multiple definitions of argument '${arg.name}'`);
+++        }
+++        this.branch_symbol_table();
+++        const decl_return_type = node.return_type.match(
+++            (v) => this.check_type(v).expect("_"),
+++            () => new VoidType(),
++         );
+++        const body_return_type_result = this.check_statement(node.body);
+++        if (!body_return_type_result.is_ok())
+++            return body_return_type_result.transform();
+++        const body_return_type =
+++            body_return_type_result.unwrap() ?? new VoidType();
+++        if (!types_compatible(decl_return_type, body_return_type))
+++            return Err("incompatible returntypes");
+++        this.merge_symbol_table();
+++        this.merge_symbol_table();
+++        const type = new FunctionType(
+++            node.args.map((arg) => this.check_type(arg.type).expect("_")),
+++            decl_return_type,
+++        );
+++        this.functions.push({ node, type, symbol_table: this.symbol_table });
+++        return Ok(type);
+++    }
+++
+++    public check_binary_operation(
+++        node: ast.BinaryOperation,
+++    ): Result<Type, CheckerError> {
+++        return qmark(this.check_expression(node.left), (left_type) => {
+++            return qmark(this.check_expression(node.right), (right_type) => {
+++                const impossible_operation_string = () =>
+++                    `impossible operation: '${left_type.id} + ${right_type.id}'`;
+++
+++                // prettier-ignore
+++                return match(node.operation, [
+++                    [ast.OperationType.Add, () => match(left_type.id, [
+++                        ["IntType", () => match(right_type.id, [
+++                            ["IntType", () => Ok(left_type)],
+++                            [_, () => Err(impossible_operation_string())], 
+++                        ])],
+++                        ["StringType", () => match(right_type.id, [
+++                            ["StringType", () => Ok(left_type)],
+++                            [_, () => Err(impossible_operation_string())], 
+++                        ])],
+++                        [_, () => Err(impossible_operation_string())],
+++                    ])],
+++                    [ast.OperationType.Subtract, Or],
+++                    [ast.OperationType.Multiply, Or],
+++                    [ast.OperationType.Divide, Or],
+++                    [ast.OperationType.Modulus, () => match(left_type.id, [
+++                        ["IntType", () => match(right_type.id, [
+++                            ["IntType", () => Ok(left_type)],
+++                            [_, () => Err(impossible_operation_string())], 
+++                        ])],
+++                        [_, () => Err(impossible_operation_string())],
+++                    ])],
+++                ]);
+++            });
+++        });
++     }
++ 
++-    public checkCall(node: ast.Call): Result<Type, CheckerError> {
++-        const calleeTypeResult = this.checkExpression(node.callee);
++-        if (!calleeTypeResult.ok) return calleeTypeResult.transform();
++-        const calleeType = calleeTypeResult.value! as FunctionType;
++-        if (calleeType.id !== "FunctionType")
+++    public check_call(node: ast.Call): Result<Type, CheckerError> {
+++        const callee_type_result = this.check_expression(node.callee);
+++        if (!callee_type_result.is_ok()) return callee_type_result.transform();
+++        const callee_type = callee_type_result.unwrap() as FunctionType;
+++        if (callee_type.id !== "FunctionType")
++             return Err("cannot call non-function type");
++-        else if (calleeType.args.length !== node.args.length)
+++        else if (callee_type.args.length !== node.args.length)
++             return Err("wrong amount of arguments");
++-        else return Ok(calleeType.returnType);
+++        else return Ok(callee_type.return_type);
++     }
++ 
++-    public checkAccessor(node: ast.Accessor): Result<Type, CheckerError> {
++-        const symbol = this.symbolTable
+++    public check_accessor(node: ast.Accessor): Result<Type, CheckerError> {
+++        const symbol = this.symbol_table
++             .get(node.name)
++-            .expect("symbol to be declared");
+++            .expect(`symbol to be declared '${node.name}'`);
++         return Ok(symbol.type);
++     }
++ 
++-    public checkType(node: ast.Type): Result<Type, CheckerError> {
+++    public check_type(node: ast.Type): Result<Type, CheckerError> {
++         switch (node.id) {
++             case "IntType":
++                 return Ok(new IntType());
++@@ -214,15 +304,15 @@ export class Checker {
++         }
++     }
++ 
++-    private branchSymbolTable() {
++-        this.symbolTableHistory.push(this.symbolTable);
++-        this.symbolTable = new SymbolTable(this.symbolTable);
+++    private branch_symbol_table() {
+++        this.symbol_table_history.push(this.symbol_table);
+++        this.symbol_table = new SymbolTable(this.symbol_table);
++     }
++ 
++-    private mergeSymbolTable() {
++-        const symbolTable = this.symbolTableHistory.pop();
++-        if (!symbolTable) throw new Error("no symbol table history");
++-        symbolTable.addChild(this.symbolTable);
++-        this.symbolTable = symbolTable;
+++    private merge_symbol_table() {
+++        const symbol_table = this.symbol_table_history.pop();
+++        if (!symbol_table) throw new Error("no symbol table history");
+++        symbol_table.add_child(this.symbol_table);
+++        this.symbol_table = symbol_table;
++     }
++ }
++diff --git a/grammar.ne b/grammar.ne
++index 3779359..5bf170c 100644
++--- a/grammar.ne
+++++ b/grammar.ne
++@@ -3,7 +3,7 @@
++ @{%
++ import moo from "https://deno.land/x/moo@0.5.1.1/index.ts";
++ import * as ast from './ast.ts';
++-import {idGenerator} from './utils.ts';
+++import { id_generator, Some, None } from './utils.ts';
++ const lexer = moo.compile({
++     nl:         {match: /[\n;]+/, lineBreaks: true},
++     ws:         /[ \t]+/,
++@@ -64,7 +64,7 @@ const lexer = moo.compile({
++     colon:      ':',
++ });
++ 
++-const fid = idGenerator();
+++const fid = id_generator();
++ 
++ %}
++ 
++@@ -89,7 +89,7 @@ const_declaration   ->  "const" __ argument _ "=" _ expression
++                             {% v => new ast.ConstDefinition(v[2], v[6]) %}
++ 
++ let_declaration     ->  "let" __ argument _ ("=" _ expression):?
++-                            {% v => new ast.LetDeclaration(v[2], v[5] ? v[5][2] : null) %}
+++                            {% v => new ast.LetDeclaration(v[2], v[5] ? Some(v[5][2]) : None()) %}
++ 
++ if          ->  "if" _ "(" _ expression _ ")" _ statement
++                     {% v => new ast.If(v[4], v[8]) %}
++@@ -129,9 +129,9 @@ expression  ->  function        {% id %}
++             |   precedence_1    {% id %}
++ 
++ function    ->  "(" arguments ")" _ (type_specifier _):? block
++-                    {% v => new ast.Function(v[1], v[4] ? v[4][0] : null, v[5]) %}
+++                    {% v => new ast.Function(v[1], v[4] ? Some(v[4][0]) : None(), v[5]) %}
++             |   "(" arguments ")" _ (type_specifier _):? "=>" _ expression
++-                    {% v => new ast.Function(v[1], v[4] ? v[4][0] : null, v[7]) %}
+++                    {% v => new ast.Function(v[1], v[4] ? Some(v[4][0]) : None(), v[7]) %}
++ 
++ arguments   ->  (_ argument (_ "," _ argument):*):? _
++                     {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
++diff --git a/main.ts b/main.ts
++index 5797142..7badac9 100644
++--- a/main.ts
+++++ b/main.ts
++@@ -3,10 +3,10 @@ import {
++     Parser,
++ } from "https://deno.land/x/nearley@2.19.7-deno/mod.ts";
++ import { Checker } from "./checker.ts";
++-import compiledGrammar from "./grammar.out.ts";
+++import compiled_grammar from "./grammar.out.ts";
++ 
++ const parse = (text: string) => {
++-    const parser = new Parser(Grammar.fromCompiled(compiledGrammar));
+++    const parser = new Parser(Grammar.fromCompiled(compiled_grammar));
++     parser.feed(text);
++     return parser.results[0];
++ };
++@@ -16,4 +16,4 @@ const text = await Deno.readTextFile(Deno.args[0]);
++ const res = parse(text);
++ 
++ console.log(JSON.stringify(res, null, "│   "));
++-console.log(new Checker().checkProgram(res));
+++console.log(new Checker().check_program(res));
++diff --git a/test.splang b/test.splang
++index d34a1e2..e8a450c 100644
++--- a/test.splang
+++++ b/test.splang
++@@ -1,5 +1,5 @@
++ 
++-const test: () => void = (hello: int) {
+++const test: (int) => void = (hello: int) {
++     hello + 1
++ }
++ 
++diff --git a/utils.ts b/utils.ts
++index 97deb6d..b9c66be 100644
++--- a/utils.ts
+++++ b/utils.ts
++@@ -1,4 +1,4 @@
++-export const idGenerator = () =>
+++export const id_generator = () =>
++     (
++         (ids) => () =>
++             ids.next().value!
++@@ -8,19 +8,69 @@ export const idGenerator = () =>
++         })(),
++     );
++ 
+++export class Option<T> {
+++    private static None = Symbol("None");
+++
+++    private constructor(
+++        private ok: boolean,
+++        private value: T | typeof Option.None,
+++    ) {}
+++
+++    public static some<T>(value: T): Option<T> {
+++        return new Option<T>(true, value);
+++    }
+++
+++    public static none<T>(): Option<T> {
+++        return new Option<T>(false, Option.None);
+++    }
+++
+++    public is_ok(): boolean {
+++        return this.ok;
+++    }
+++
+++    public is_err(): boolean {
+++        return !this.ok;
+++    }
+++
+++    public unwrap(): T {
+++        if (this.ok) return this.value as T;
+++        else throw new Error("cannot unwrap non-ok result");
+++    }
+++
+++    public expect(msg: string): T {
+++        if (this.ok) return this.value as T;
+++        else throw new Error(`cannot unwrap non-ok result, expected ${msg}`);
+++    }
+++
+++    public match<Y>(case_some: (v: T) => Y, case_none: () => Y): Y {
+++        return this.ok ? case_some(this.value as T) : case_none();
+++    }
+++}
+++
+++export const Some = <T>(value: T): Option<T> => Option.some<T>(value);
+++export const None = <T>(): Option<T> => Option.none<T>();
+++
++ export class Result<T, E> {
++     private constructor(
++-        public readonly ok: boolean,
++-        public value: T | null,
++-        public error: E | null,
+++        private ok: boolean,
+++        private value: Option<T>,
+++        private error: Option<E>,
++     ) {}
++ 
++     public static ok<T, E>(value: T): Result<T, E> {
++-        return new Result<T, E>(true, value, null);
+++        return new Result<T, E>(true, Some(value), None());
++     }
++ 
++     public static error<T, E>(error: E): Result<T, E> {
++-        return new Result<T, E>(false, null, error);
+++        return new Result<T, E>(false, None(), Some(error));
+++    }
+++
+++    public is_ok(): boolean {
+++        return this.ok;
+++    }
+++
+++    public is_err(): boolean {
+++        return !this.ok;
++     }
++ 
++     public transform<NT, NE extends E>(): Result<NT, NE> {
++@@ -29,17 +79,32 @@ export class Result<T, E> {
++     }
++ 
++     public unwrap(): T {
++-        if (this.ok) return this.value!;
+++        if (this.ok) return this.value.unwrap();
++         else throw new Error("cannot unwrap non-ok result");
++     }
++ 
+++    public unwrap_err(): E {
+++        if (!this.ok) return this.error.unwrap();
+++        else throw new Error("cannot unwrap error of ok result");
+++    }
+++
++     public expect(msg: string): T {
++-        if (this.ok) return this.value!;
+++        if (this.ok) return this.value.unwrap();
++         else throw new Error(`cannot unwrap non-ok result, expected ${msg}`);
++     }
++ 
++-    public match<Y>(caseOk: (v: T) => Y, caseError: (e: E) => Y): Y {
++-        return this.ok ? caseOk(this.value!) : caseError(this.error!);
+++    public expect_err(msg: string): E {
+++        if (!this.ok) return this.error.unwrap();
+++        else
+++            throw new Error(
+++                `cannot unwrap error of ok result, expected ${msg}`,
+++            );
+++    }
+++
+++    public match<Y>(case_ok: (v: T) => Y, case_error: (e: E) => Y): Y {
+++        return this.ok
+++            ? case_ok(this.value.unwrap())
+++            : case_error(this.error.unwrap());
++     }
++ }
++ 
++@@ -47,3 +112,23 @@ export const Ok = <T, E>(value: T) => Result.ok<T, E>(value);
++ export const Err = <T, E>(error: E) => Result.error<T, E>(error);
++ 
++ export const force = <T extends U, U>(v: U) => v as unknown as T;
+++
+++export const qmark = <Y, T, E>(
+++    result: Result<T, E>,
+++    action: (value: T) => Y,
+++) => {
+++    if (result.is_err()) return result;
+++    else return action(result.unwrap());
+++};
+++
+++export const _ = Symbol("_");
+++export const Or = Symbol("|");
+++
+++export const match = <V, T>(
+++    value: V,
+++    cases: [v: V | typeof _, action: (() => T) | typeof Or][],
+++): T => {
+++    for (const [v, action] of cases)
+++        if ((v === _ || v === value) && action !== Or) return action();
+++    throw new Error("unexhaustive match");
+++};
++-- 
++2.25.1
++
+diff --git a/speedrun-language/commits/0001-init.patch b/speedrun-language/commits/0001-init.patch
+new file mode 100644
+index 0000000..c7aa411
+--- /dev/null
++++ b/speedrun-language/commits/0001-init.patch
+@@ -0,0 +1,388 @@
++From 6a8b54c8a218009657ac08f1e095aca6045aea45 Mon Sep 17 00:00:00 2001
++From: SimonFJ20 <simonfromjakobsen@gmail.com>
++Date: Tue, 21 Jun 2022 03:49:17 +0200
++Subject: [PATCH] init
++
++---
++ .gitignore            |   1 +
++ .vscode/settings.json |   5 ++
++ grammar.ne            | 104 +++++++++++++++++++++++++++
++ grammar.out.ts        | 159 ++++++++++++++++++++++++++++++++++++++++++
++ main.ts               |  29 ++++++++
++ out.c                 |  10 +++
++ run.sh                |   1 +
++ test.splang           |   1 +
++ 8 files changed, 310 insertions(+)
++ create mode 100644 .gitignore
++ create mode 100644 .vscode/settings.json
++ create mode 100644 grammar.ne
++ create mode 100644 grammar.out.ts
++ create mode 100644 main.ts
++ create mode 100644 out.c
++ create mode 100755 run.sh
++ create mode 100644 test.splang
++
++diff --git a/.gitignore b/.gitignore
++new file mode 100644
++index 0000000..aca7928
++--- /dev/null
+++++ b/.gitignore
++@@ -0,0 +1 @@
+++*out*
++diff --git a/.vscode/settings.json b/.vscode/settings.json
++new file mode 100644
++index 0000000..2c7ddc5
++--- /dev/null
+++++ b/.vscode/settings.json
++@@ -0,0 +1,5 @@
+++{
+++    "deno.enable": true,
+++    "deno.lint": true,
+++    "deno.unstable": true
+++}
++\ No newline at end of file
++diff --git a/grammar.ne b/grammar.ne
++new file mode 100644
++index 0000000..9bc2a41
++--- /dev/null
+++++ b/grammar.ne
++@@ -0,0 +1,104 @@
+++@preprocessor typescript
+++
+++@{%
+++import moo from "https://deno.land/x/moo@0.5.1.1/index.ts";
+++const { compile, keywords } = moo;
+++const lexer = compile({
+++    nl:         {match: /[\n;]+/, lineBreaks: true},
+++    ws:         /[ \t]+/,
+++    comment_sl: /\/\/.*?$/,
+++    comment_ml: {match: /\*[^*]*\*+(?:[^/*][^*]*\*+)*/, lineBreaks: true},
+++    float:      /\-?(?:(?:0|(?:[1-9][0-9]*))\.[0-9]+)/,
+++    hex:        /0x[0-9a-fA-F]+/,
+++    int:        /0|(?:[1-9][0-9]*)/,
+++    char:       {match: /'(?:[^'\\]|\\[\s\S])'/, value: s => s.slice(1, -1), lineBreaks: true},
+++    string:     {match: /"(?:[^"\\]|\\[\s\S])*"/, value: s => s.slice(1, -1), lineBreaks: true},
+++    name:       {match: /[a-zA-Z0-9_]+/, type: keywords({
+++        keyword: ['func', 'return', 'if', 'else', 'while', 'for', 'break', 'continue', 'let', 'import', 'struct', 'new', 'delete']
+++    })},
+++    dot:        '.',
+++
+++    heavyarrow: '=>',
+++    thinarrow:  '->',
+++
+++    lparen:     '(',
+++    rparen:     ')',
+++    lbrace:     '{',
+++    rbrace:     '}',
+++    lbracket:   '[',
+++    rbracket:   ']',
+++    comma:      ',',
+++    
+++    plus:       '+',
+++    minus:      '-',
+++    powerof:    '^^',
+++    multiply:   '*',
+++    divide:     '/',
+++    modulus:    '%',
+++
+++    log_and:    '&&',
+++    log_or:     '||',
+++
+++    bit_and:    '&',
+++    bit_or:     '|',
+++    bit_xor:    '^',
+++    bit_not:    '~',
+++    bit_rights: '>>>',
+++    bit_right:  '>>',
+++    bit_left:   '<<',
+++
+++    cmp_e:      '==',
+++    cmp_ne:     '!=',
+++    cmp_lte:    '<=',
+++    cmp_gte:    '>=',
+++    cmp_lt:     '<',
+++    cmp_gt:     '>',
+++
+++    log_not:    '!',
+++
+++    infer:     ':=',
+++    assign:     '=',
+++
+++    qmark:      '?',
+++    colon:      ':',
+++});
+++%}
+++
+++@lexer lexer
+++
+++
+++statements  ->  (_ statement (_nl_ statement):*):? _
+++    {% v => (v[0] ? [v[0][1], ...v[0][2].map((v: string) => v[1])] : []).map(v => `${v};\n`) %}
+++
+++statement   ->  expression
+++
+++expression  ->  add_sub
+++
+++add_sub     ->  add_sub _ "+" _ mul_div_mod
+++                    {% v => `(${v[0]} + ${v[4]})` %}
+++            |   add_sub _ "-" _ mul_div_mod
+++                    {% v => `(${v[0]} - ${v[4]})` %}
+++            |   mul_div_mod
+++
+++mul_div_mod ->  mul_div_mod _ "*" _ value
+++                    {% v => `(${v[0]} * ${v[4]})` %}
+++            |   mul_div_mod _ "/" _ value
+++                    {% v => `(${v[0]} / ${v[4]})` %}
+++            |   mul_div_mod _ "%" _ value
+++                    {% v => `(${v[0]} % ${v[4]})` %}
+++            |   value
+++
+++value       ->  %int
+++                    {% v => `${v[0].value}` %}
+++            |   %string
+++                    {% v => `"${v[0].value}"` %}
+++            |   "(" _ expression _ ")"
+++                    {% v => `(${v[2]})` %} 
+++
+++_           ->  __:?
+++__          ->  (%ws|%nl|%comment_sl|%comment_ml):+
+++
+++_nl_        ->  sl_ (%nl sl_):+
+++
+++sl_         ->  sl__:?
+++sl__        ->  (%ws|%comment_sl|%comment_ml):+
++diff --git a/grammar.out.ts b/grammar.out.ts
++new file mode 100644
++index 0000000..3d7c73c
++--- /dev/null
+++++ b/grammar.out.ts
++@@ -0,0 +1,159 @@
+++// Generated automatically by nearley, version 2.20.1
+++// http://github.com/Hardmath123/nearley
+++// Bypasses TS6133. Allow declared but unused functions.
+++// @ts-ignore
+++function id(d: any[]): any { return d[0]; }
+++declare var int: any;
+++declare var string: any;
+++declare var ws: any;
+++declare var nl: any;
+++declare var comment_sl: any;
+++declare var comment_ml: any;
+++
+++import moo from "https://deno.land/x/moo@0.5.1.1/index.ts";
+++const { compile, keywords } = moo;
+++const lexer = compile({
+++    nl:         {match: /[\n;]+/, lineBreaks: true},
+++    ws:         /[ \t]+/,
+++    comment_sl: /\/\/.*?$/,
+++    comment_ml: {match: /\*[^*]*\*+(?:[^/*][^*]*\*+)*/, lineBreaks: true},
+++    float:      /\-?(?:(?:0|(?:[1-9][0-9]*))\.[0-9]+)/,
+++    hex:        /0x[0-9a-fA-F]+/,
+++    int:        /0|(?:[1-9][0-9]*)/,
+++    char:       {match: /'(?:[^'\\]|\\[\s\S])'/, value: s => s.slice(1, -1), lineBreaks: true},
+++    string:     {match: /"(?:[^"\\]|\\[\s\S])*"/, value: s => s.slice(1, -1), lineBreaks: true},
+++    name:       {match: /[a-zA-Z0-9_]+/, type: keywords({
+++        keyword: ['func', 'return', 'if', 'else', 'while', 'for', 'break', 'continue', 'let', 'import', 'struct', 'new', 'delete']
+++    })},
+++    dot:        '.',
+++
+++    heavyarrow: '=>',
+++    thinarrow:  '->',
+++
+++    lparen:     '(',
+++    rparen:     ')',
+++    lbrace:     '{',
+++    rbrace:     '}',
+++    lbracket:   '[',
+++    rbracket:   ']',
+++    comma:      ',',
+++    
+++    plus:       '+',
+++    minus:      '-',
+++    powerof:    '^^',
+++    multiply:   '*',
+++    divide:     '/',
+++    modulus:    '%',
+++
+++    log_and:    '&&',
+++    log_or:     '||',
+++
+++    bit_and:    '&',
+++    bit_or:     '|',
+++    bit_xor:    '^',
+++    bit_not:    '~',
+++    bit_rights: '>>>',
+++    bit_right:  '>>',
+++    bit_left:   '<<',
+++
+++    cmp_e:      '==',
+++    cmp_ne:     '!=',
+++    cmp_lte:    '<=',
+++    cmp_gte:    '>=',
+++    cmp_lt:     '<',
+++    cmp_gt:     '>',
+++
+++    log_not:    '!',
+++
+++    infer:     ':=',
+++    assign:     '=',
+++
+++    qmark:      '?',
+++    colon:      ':',
+++});
+++
+++interface NearleyToken {
+++  value: any;
+++  [key: string]: any;
+++};
+++
+++interface NearleyLexer {
+++  reset: (chunk: string, info: any) => void;
+++  next: () => NearleyToken | undefined;
+++  save: () => any;
+++  formatError: (token: never) => string;
+++  has: (tokenType: string) => boolean;
+++};
+++
+++interface NearleyRule {
+++  name: string;
+++  symbols: NearleySymbol[];
+++  postprocess?: (d: any[], loc?: number, reject?: {}) => any;
+++};
+++
+++type NearleySymbol = string | { literal: any } | { test: (token: any) => boolean };
+++
+++interface Grammar {
+++  Lexer: NearleyLexer | undefined;
+++  ParserRules: NearleyRule[];
+++  ParserStart: string;
+++};
+++
+++const grammar: Grammar = {
+++  Lexer: lexer,
+++  ParserRules: [
+++    {"name": "statements$ebnf$1$subexpression$1$ebnf$1", "symbols": []},
+++    {"name": "statements$ebnf$1$subexpression$1$ebnf$1$subexpression$1", "symbols": ["_nl_", "statement"]},
+++    {"name": "statements$ebnf$1$subexpression$1$ebnf$1", "symbols": ["statements$ebnf$1$subexpression$1$ebnf$1", "statements$ebnf$1$subexpression$1$ebnf$1$subexpression$1"], "postprocess": (d) => d[0].concat([d[1]])},
+++    {"name": "statements$ebnf$1$subexpression$1", "symbols": ["_", "statement", "statements$ebnf$1$subexpression$1$ebnf$1"]},
+++    {"name": "statements$ebnf$1", "symbols": ["statements$ebnf$1$subexpression$1"], "postprocess": id},
+++    {"name": "statements$ebnf$1", "symbols": [], "postprocess": () => null},
+++    {"name": "statements", "symbols": ["statements$ebnf$1", "_"], "postprocess": v => (v[0] ? [v[0][1], ...v[0][2].map((v: string) => v[1])] : []).map(v => `${v};\n`)},
+++    {"name": "statement", "symbols": ["expression"]},
+++    {"name": "expression", "symbols": ["add_sub"]},
+++    {"name": "add_sub", "symbols": ["add_sub", "_", {"literal":"+"}, "_", "mul_div_mod"], "postprocess": v => `(${v[0]} + ${v[4]})`},
+++    {"name": "add_sub", "symbols": ["add_sub", "_", {"literal":"-"}, "_", "mul_div_mod"], "postprocess": v => `(${v[0]} - ${v[4]})`},
+++    {"name": "add_sub", "symbols": ["mul_div_mod"]},
+++    {"name": "mul_div_mod", "symbols": ["mul_div_mod", "_", {"literal":"*"}, "_", "value"], "postprocess": v => `(${v[0]} * ${v[4]})`},
+++    {"name": "mul_div_mod", "symbols": ["mul_div_mod", "_", {"literal":"/"}, "_", "value"], "postprocess": v => `(${v[0]} / ${v[4]})`},
+++    {"name": "mul_div_mod", "symbols": ["mul_div_mod", "_", {"literal":"%"}, "_", "value"], "postprocess": v => `(${v[0]} % ${v[4]})`},
+++    {"name": "mul_div_mod", "symbols": ["value"]},
+++    {"name": "value", "symbols": [(lexer.has("int") ? {type: "int"} : int)], "postprocess": v => `${v[0].value}`},
+++    {"name": "value", "symbols": [(lexer.has("string") ? {type: "string"} : string)], "postprocess": v => `"${v[0].value}"`},
+++    {"name": "value", "symbols": [{"literal":"("}, "_", "expression", "_", {"literal":")"}], "postprocess": v => `(${v[2]})`},
+++    {"name": "_$ebnf$1", "symbols": ["__"], "postprocess": id},
+++    {"name": "_$ebnf$1", "symbols": [], "postprocess": () => null},
+++    {"name": "_", "symbols": ["_$ebnf$1"]},
+++    {"name": "__$ebnf$1$subexpression$1", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws)]},
+++    {"name": "__$ebnf$1$subexpression$1", "symbols": [(lexer.has("nl") ? {type: "nl"} : nl)]},
+++    {"name": "__$ebnf$1$subexpression$1", "symbols": [(lexer.has("comment_sl") ? {type: "comment_sl"} : comment_sl)]},
+++    {"name": "__$ebnf$1$subexpression$1", "symbols": [(lexer.has("comment_ml") ? {type: "comment_ml"} : comment_ml)]},
+++    {"name": "__$ebnf$1", "symbols": ["__$ebnf$1$subexpression$1"]},
+++    {"name": "__$ebnf$1$subexpression$2", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws)]},
+++    {"name": "__$ebnf$1$subexpression$2", "symbols": [(lexer.has("nl") ? {type: "nl"} : nl)]},
+++    {"name": "__$ebnf$1$subexpression$2", "symbols": [(lexer.has("comment_sl") ? {type: "comment_sl"} : comment_sl)]},
+++    {"name": "__$ebnf$1$subexpression$2", "symbols": [(lexer.has("comment_ml") ? {type: "comment_ml"} : comment_ml)]},
+++    {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", "__$ebnf$1$subexpression$2"], "postprocess": (d) => d[0].concat([d[1]])},
+++    {"name": "__", "symbols": ["__$ebnf$1"]},
+++    {"name": "_nl_$ebnf$1$subexpression$1", "symbols": [(lexer.has("nl") ? {type: "nl"} : nl), "sl_"]},
+++    {"name": "_nl_$ebnf$1", "symbols": ["_nl_$ebnf$1$subexpression$1"]},
+++    {"name": "_nl_$ebnf$1$subexpression$2", "symbols": [(lexer.has("nl") ? {type: "nl"} : nl), "sl_"]},
+++    {"name": "_nl_$ebnf$1", "symbols": ["_nl_$ebnf$1", "_nl_$ebnf$1$subexpression$2"], "postprocess": (d) => d[0].concat([d[1]])},
+++    {"name": "_nl_", "symbols": ["sl_", "_nl_$ebnf$1"]},
+++    {"name": "sl_$ebnf$1", "symbols": ["sl__"], "postprocess": id},
+++    {"name": "sl_$ebnf$1", "symbols": [], "postprocess": () => null},
+++    {"name": "sl_", "symbols": ["sl_$ebnf$1"]},
+++    {"name": "sl__$ebnf$1$subexpression$1", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws)]},
+++    {"name": "sl__$ebnf$1$subexpression$1", "symbols": [(lexer.has("comment_sl") ? {type: "comment_sl"} : comment_sl)]},
+++    {"name": "sl__$ebnf$1$subexpression$1", "symbols": [(lexer.has("comment_ml") ? {type: "comment_ml"} : comment_ml)]},
+++    {"name": "sl__$ebnf$1", "symbols": ["sl__$ebnf$1$subexpression$1"]},
+++    {"name": "sl__$ebnf$1$subexpression$2", "symbols": [(lexer.has("ws") ? {type: "ws"} : ws)]},
+++    {"name": "sl__$ebnf$1$subexpression$2", "symbols": [(lexer.has("comment_sl") ? {type: "comment_sl"} : comment_sl)]},
+++    {"name": "sl__$ebnf$1$subexpression$2", "symbols": [(lexer.has("comment_ml") ? {type: "comment_ml"} : comment_ml)]},
+++    {"name": "sl__$ebnf$1", "symbols": ["sl__$ebnf$1", "sl__$ebnf$1$subexpression$2"], "postprocess": (d) => d[0].concat([d[1]])},
+++    {"name": "sl__", "symbols": ["sl__$ebnf$1"]}
+++  ],
+++  ParserStart: "statements",
+++};
+++
+++export default grammar;
++diff --git a/main.ts b/main.ts
++new file mode 100644
++index 0000000..5d8ef47
++--- /dev/null
+++++ b/main.ts
++@@ -0,0 +1,29 @@
+++import {
+++    Grammar,
+++    Parser,
+++} from "https://deno.land/x/nearley@2.19.7-deno/mod.ts";
+++import compiledGrammar from "./grammar.out.ts";
+++
+++if (Deno.args.length < 1) throw new Error("not enough args");
+++
+++const parse = (text: string) => {
+++    const parser = new Parser(Grammar.fromCompiled(compiledGrammar));
+++    parser.feed(text);
+++    return parser.results[0];
+++};
+++
+++const text = await Deno.readTextFile(Deno.args[0]);
+++const res = parse(text);
+++
+++const c = `// compiled
+++#include <stdio.h>
+++#include <stdlib.h>
+++#include <stdbool.h>
+++#include <stdint.h>
+++int main(int argc, char** argv)
+++{
+++    ${res}
+++}
+++`;
+++
+++await Deno.writeTextFile("out.c", c);
++diff --git a/out.c b/out.c
++new file mode 100644
++index 0000000..4406c24
++--- /dev/null
+++++ b/out.c
++@@ -0,0 +1,10 @@
+++// compiled
+++#include <stdio.h>
+++#include <stdlib.h>
+++#include <stdbool.h>
+++#include <stdint.h>
+++int main(int argc, char** argv)
+++{
+++    (1 + (2 * 3));
+++
+++}
++diff --git a/run.sh b/run.sh
++new file mode 100755
++index 0000000..049c0fd
++--- /dev/null
+++++ b/run.sh
++@@ -0,0 +1 @@
+++nearleyc grammar.ne > grammar.out.ts && deno run --allow-read --allow-write main.ts $1
++\ No newline at end of file
++diff --git a/test.splang b/test.splang
++new file mode 100644
++index 0000000..8302cda
++--- /dev/null
+++++ b/test.splang
++@@ -0,0 +1 @@
+++1 + 2 * 3
++\ No newline at end of file
++-- 
++2.25.1
++
+diff --git a/speedrun-language/commits/0001-more-checking.patch b/speedrun-language/commits/0001-more-checking.patch
+new file mode 100644
+index 0000000..2216558
+--- /dev/null
++++ b/speedrun-language/commits/0001-more-checking.patch
+@@ -0,0 +1,169 @@
++From 4c53c2fa450225f4dca4ad023a56704119647fbe Mon Sep 17 00:00:00 2001
++From: SimonFJ20 <simonfromjakobsen@gmail.com>
++Date: Fri, 1 Jul 2022 19:57:14 +0200
++Subject: [PATCH] more checking
++
++---
++ ast.ts     |  8 +++++++-
++ checker.ts | 47 ++++++++++++++++++++++++++++++++++++++++++++---
++ grammar.ne | 17 ++++++++++-------
++ 3 files changed, 61 insertions(+), 11 deletions(-)
++
++diff --git a/ast.ts b/ast.ts
++index ebbc71e..3fd01b2 100644
++--- a/ast.ts
+++++ b/ast.ts
++@@ -47,7 +47,13 @@ export class While extends Statement {
++     }
++ }
++ 
++-export abstract class Type extends Statement {}
+++export class ExpressionStatement extends Statement {
+++    public constructor(public expression: Expression) {
+++        super("ExpressionStatement");
+++    }
+++}
+++
+++export abstract class Type extends Node {}
++ 
++ export class VoidType extends Type {
++     public constructor() {
++diff --git a/checker.ts b/checker.ts
++index ca2cfed..11ca83c 100644
++--- a/checker.ts
+++++ b/checker.ts
++@@ -23,8 +23,11 @@ export class FunctionType extends Type {
++     }
++ }
++ 
++-const typesCompatible = (a: Type, b: Type) => {
+++const typesCompatible = (a: Type, b: Type): boolean => {
++     switch (a.id) {
+++        case "FunctionType":
+++            if (b.id !== "FunctionType") return false;
+++            else return functionTypesCompatible(force(a), force(b));
++         default:
++             throw new Error(
++                 `typesCompatible unexhaustive '${a.id}' and '${b.id}'`,
++@@ -32,6 +35,11 @@ const typesCompatible = (a: Type, b: Type) => {
++     }
++ };
++ 
+++const functionTypesCompatible = (a: FunctionType, b: FunctionType): boolean => {
+++    if (a.args.length !== b.args.length) return false;
+++    else return true;
+++};
+++
++ export type Symbol = {
++     name: string;
++     type: Type;
++@@ -119,10 +127,14 @@ export class Checker {
++         );
++     }
++ 
++-    public checkStatement(node: ast.Statement): Result<null, CheckerError> {
+++    public checkStatement(
+++        node: ast.Statement,
+++    ): Result<Type | null, CheckerError> {
++         switch (node.id) {
++             case "ConstDefinition":
++                 return this.checkConstDefinition(force(node));
+++            case "ExpressionStatement":
+++                return this.checkExpressionStatement(force(node));
++             default:
++                 throw new Error(`unchecked statement '${node.id}'`);
++         }
++@@ -130,7 +142,7 @@ export class Checker {
++ 
++     public checkConstDefinition(
++         node: ast.ConstDefinition,
++-    ): Result<null, CheckerError> {
+++    ): Result<Type | null, CheckerError> {
++         if (this.symbolTable.declaredLocally(node.target.name))
++             return Err(`multiple definitions of symbol '${node.target.name}'`);
++         const valueTypeResult = this.checkExpression(node.value);
++@@ -146,10 +158,21 @@ export class Checker {
++         return Ok(null);
++     }
++ 
+++    public checkExpressionStatement(
+++        node: ast.ExpressionStatement,
+++    ): Result<Type | null, CheckerError> {
+++        this.checkExpression(node.expression);
+++        return Ok(null);
+++    }
+++
++     public checkExpression(node: ast.Expression): Result<Type, CheckerError> {
++         switch (node.id) {
++             case "Function":
++                 return this.checkFunction(force(node));
+++            case "Call":
+++                return this.checkCall(force(node));
+++            case "Accessor":
+++                return this.checkAccessor(force(node));
++             default:
++                 throw new Error(`unchecked expression '${node.id}'`);
++         }
++@@ -164,6 +187,24 @@ export class Checker {
++         );
++     }
++ 
+++    public checkCall(node: ast.Call): Result<Type, CheckerError> {
+++        const calleeTypeResult = this.checkExpression(node.callee);
+++        if (!calleeTypeResult.ok) return calleeTypeResult.transform();
+++        const calleeType = calleeTypeResult.value! as FunctionType;
+++        if (calleeType.id !== "FunctionType")
+++            return Err("cannot call non-function type");
+++        else if (calleeType.args.length !== node.args.length)
+++            return Err("wrong amount of arguments");
+++        else return Ok(calleeType.returnType);
+++    }
+++
+++    public checkAccessor(node: ast.Accessor): Result<Type, CheckerError> {
+++        const symbol = this.symbolTable
+++            .get(node.name)
+++            .expect("symbol to be declared");
+++        return Ok(symbol.type);
+++    }
+++
++     public checkType(node: ast.Type): Result<Type, CheckerError> {
++         switch (node.id) {
++             case "IntType":
++diff --git a/grammar.ne b/grammar.ne
++index e2b9ecc..3779359 100644
++--- a/grammar.ne
+++++ b/grammar.ne
++@@ -74,13 +74,13 @@ const fid = idGenerator();
++ statements  ->  (_ statement (_nl_ statement):*):? _
++     {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[1])] : [] %}
++ 
++-statement   ->  block               {% id %}
++-            |   const_declaration   {% id %}
++-            |   let_declaration     {% id %}
++-            |   if                  {% id %}
++-            |   if_else             {% id %}
++-            |   while               {% id %}
++-            |   expression          {% id %}
+++statement   ->  block                   {% id %}
+++            |   const_declaration       {% id %}
+++            |   let_declaration         {% id %}
+++            |   if                      {% id %}
+++            |   if_else                 {% id %}
+++            |   while                   {% id %}
+++            |   expression_statement    {% id %}
++ 
++ block       ->  "{" statements "}"
++                     {% v => new ast.Block(v[1]) %}
++@@ -100,6 +100,9 @@ if_else     ->  "if" _ "(" _ expression _ ")" _ statement _ "else" _ statement
++ while       ->  "while" _ "(" _ expression _ ")" _ statement
++                     {% v => new ast.While(v[4], v[8]) %}
++ 
+++expression_statement    ->  expression
+++                                {% v => new ast.ExpressionStatement(v[0]) %}
+++
++ expressions ->  (_ expression (_ "," _ expression):*):? _
++                     {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
++ 
++-- 
++2.25.1
++
+diff --git a/speedrun-language/commits/0001-no-more-errors.patch b/speedrun-language/commits/0001-no-more-errors.patch
+new file mode 100644
+index 0000000..c023a47
+--- /dev/null
++++ b/speedrun-language/commits/0001-no-more-errors.patch
+@@ -0,0 +1,329 @@
++From ee4094328f9fa3d918846ce4ff7ad8b3c0a3c44a Mon Sep 17 00:00:00 2001
++From: SimonFJ20 <simonfromjakobsen@gmail.com>
++Date: Fri, 1 Jul 2022 02:38:13 +0200
++Subject: [PATCH] no more errors?
++
++---
++ ast.ts     |  15 ++++++--
++ checker.ts | 101 +++++++++++++++++++++++++++++++++++++----------------
++ grammar.ne |  19 +++++-----
++ main.ts    |   2 ++
++ 4 files changed, 95 insertions(+), 42 deletions(-)
++
++diff --git a/ast.ts b/ast.ts
++index 99a9013..5866427 100644
++--- a/ast.ts
+++++ b/ast.ts
++@@ -11,13 +11,21 @@ export class Block extends Statement {
++ }
++ 
++ export class ConstDefinition extends Statement {
++-    public constructor(public target: Argument, public value: Expression) {
+++    public constructor(
+++        public target: Argument,
+++        public type: Type | null,
+++        public value: Expression,
+++    ) {
++         super("ConstDefinition");
++     }
++ }
++ 
++ export class LetDeclaration extends Statement {
++-    public constructor(public target: Argument, public value: Expression) {
+++    public constructor(
+++        public target: Argument,
+++        public type: Type | null,
+++        public value: Expression | null,
+++    ) {
++         super("LetDeclaration");
++     }
++ }
++@@ -65,7 +73,7 @@ export class StringType extends Type {
++ }
++ 
++ export class FunctionType extends Type {
++-    public constructor(args: Type[], returnType: Type) {
+++    public constructor(public args: Type[], public returnType: Type) {
++         super("FunctionType");
++     }
++ }
++@@ -75,6 +83,7 @@ export abstract class Expression extends Statement {}
++ export class Function extends Expression {
++     public constructor(
++         public args: Argument[],
+++        public returnType: Type | null,
++         public body: Statement,
++         public fid: number,
++     ) {
++diff --git a/checker.ts b/checker.ts
++index 25ff110..1abf1db 100644
++--- a/checker.ts
+++++ b/checker.ts
++@@ -1,20 +1,20 @@
++ import * as ast from "./ast.ts";
++ import { idGenerator } from "./utils.ts";
++ 
++-type Type<ID extends string = string> = { id: ID };
++-type Int = Type<"int">;
++-type String = Type<"string">;
++-type Function = Type<"function"> & {
+++export type Type<ID extends string = string> = { id: ID };
+++export type IntType = Type<"int">;
+++export type StringType = Type<"string">;
+++export type FunctionType = Type<"function"> & {
++     args: Type[];
++     returnType: Type;
++ };
++ 
++-type Symbol = {
+++export type Symbol = {
++     type: Type;
++     symbolTable: SymbolTable;
++ };
++ 
++-class SymbolTable {
+++export class SymbolTable {
++     private names: { [key: string]: Symbol } = {};
++     private functions: ast.Function[] = [];
++     private children: SymbolTable[] = [];
++@@ -52,27 +52,53 @@ class SymbolTable {
++     }
++ }
++ 
++-class Checker {
+++export class CheckerError extends Error {
+++    public constructor(message: string) {
+++        super(message);
+++    }
+++}
+++
+++export type CheckerResult = {
+++    symbolTable: SymbolTable;
+++    errors: CheckerError[];
+++};
+++
+++export class Checker {
++     private symbolTable: SymbolTable = new SymbolTable();
+++    private errors: CheckerError[] = [];
++ 
++     public constructor() {}
++ 
++-    public checkProgram(program: ast.Statement[]): SymbolTable {
+++    public checkProgram(program: ast.Statement[]): CheckerResult {
++         this.symbolTable = new SymbolTable();
++         this.checkStatements(program);
++-        return this.symbolTable;
+++        return {
+++            symbolTable: this.symbolTable,
+++            errors: this.errors,
+++        };
+++    }
+++
+++    private catchErrors<T>(f: () => T) {
+++        try {
+++            f();
+++        } catch (catched) {
+++            if (catched instanceof CheckerError) this.errors.push(catched);
+++            else throw catched;
+++        }
++     }
++ 
++     private checkStatements(nodes: ast.Statement[]) {
++-        nodes.forEach((node) => this.checkStatement(node));
+++        nodes.forEach((node) =>
+++            this.catchErrors(() => this.checkStatement(node)),
+++        );
++     }
++ 
++     private checkStatement(node: ast.Statement) {
++         switch (node.id) {
++             case "Block":
++                 return this.checkBlock(force(node));
++-            case "ConstDeclaration":
++-                return this.checkConstDeclaration(force(node));
+++            case "ConstDefinition":
+++                return this.checkConstDefinition(force(node));
++             case "BinaryOperation":
++             case "Call":
++                 return this.checkExpression(node);
++@@ -88,23 +114,26 @@ class Checker {
++         this.symbolTable = parentTable;
++     }
++ 
++-    private checkConstDeclaration(node: ast.ConstDeclaration) {
+++    private checkConstDefinition(node: ast.ConstDefinition) {
++         if (this.symbolTable.nameDefinedLocally(node.target.name))
++             throw new Error(`multiple definition of ${node.target.name}`);
++         const type = this.checkExpression(node.value);
++-        this.symbolTable.setName(node.target.name, { type });
+++        this.symbolTable.setName(node.target.name, {
+++            type,
+++            symbolTable: this.symbolTable,
+++        });
++     }
++ 
++-    private checkType(node: ast.Type): ValueType {
+++    private checkType(node: ast.Type): Type {
++         switch (node.id) {
++             case "IntType":
++-                return "int";
+++                return { id: "int" };
++             default:
++                 throw new Error(`unchecked type '${node.id}'`);
++         }
++     }
++ 
++-    private checkExpression(node: ast.Expression): ValueType {
+++    private checkExpression(node: ast.Expression): Type {
++         switch (node.id) {
++             case "Function":
++                 return this.checkFunction(force(node));
++@@ -115,36 +144,46 @@ class Checker {
++             case "Accessor":
++                 return this.checkAccessor(force(node));
++             case "Int":
++-                return "int";
+++                return { id: "int" };
++             default:
++                 throw new Error(`unchecked expression '${node.id}'`);
++         }
++     }
++ 
++-    private checkFunction(node: ast.Function): ValueType {
+++    private checkFunction(node: ast.Function): Type {
++         const parentTable = this.symbolTable;
++         this.symbolTable = new SymbolTable(parentTable);
++-        node.args.forEach((arg) => {
+++        const args = node.args.map((arg) => {
++             if (this.symbolTable.nameDefinedLocally(arg.name))
++                 throw new Error("already defined");
+++            const type = this.checkType(arg.type);
++             this.symbolTable.setName(arg.name, {
++-                type: this.checkType(arg.type),
+++                type,
+++                symbolTable: this.symbolTable,
++             });
+++            return type;
++         });
++         this.checkStatement(node.body);
++         this.symbolTable = parentTable;
++         this.symbolTable.addFunction(node);
++-        return "function";
+++        return {
+++            id: "function",
+++            args,
+++            returnType: node.returnType,
+++        } as FunctionType;
++     }
++ 
++-    private checkBinaryOperation(node: ast.BinaryOperation): ValueType {
+++    private checkBinaryOperation(node: ast.BinaryOperation): Type {
++         const leftType = this.checkExpression(node.left);
++         const rightType = this.checkExpression(node.right);
++         switch (node.operation) {
++             case ast.OperationType.Add:
++-                if (leftType === "int" && rightType !== "int") {
+++                if (leftType.id === "int" && rightType.id !== "int") {
++                     throw new Error("type mismatch");
++-                } else if (leftType === "string" && rightType !== "string") {
+++                } else if (
+++                    leftType.id === "string" &&
+++                    rightType.id !== "string"
+++                ) {
++                     throw new Error("type mismatch");
++                 }
++                 break;
++@@ -152,7 +191,7 @@ class Checker {
++             case ast.OperationType.Multiply:
++             case ast.OperationType.Divide:
++             case ast.OperationType.Modulus:
++-                if (leftType !== "int" || rightType !== "int") {
+++                if (leftType.id !== "int" || rightType.id !== "int") {
++                     throw new Error(
++                         `type mismatch '${leftType}' and '${rightType}'`,
++                     );
++@@ -161,14 +200,14 @@ class Checker {
++         return leftType;
++     }
++ 
++-    private checkCall(node: ast.Call): ValueType {
++-        const calleeType = this.checkExpression(node.callee);
++-        if (calleeType !== "function")
+++    private checkCall(node: ast.Call): Type {
+++        const calleeType = this.checkExpression(node.callee) as FunctionType;
+++        if (calleeType.id !== "function")
++             throw new Error(`cannot call type '${calleeType}'`);
++-        return "int";
+++        return calleeType.returnType;
++     }
++ 
++-    private checkAccessor(node: ast.Accessor): ValueType {
+++    private checkAccessor(node: ast.Accessor): Type {
++         if (!this.symbolTable.nameDefined(node.name))
++             throw new Error(`undefined symbol '${node.name}'`);
++         const symbol = this.symbolTable.getName(node.name);
++diff --git a/grammar.ne b/grammar.ne
++index 3eedb39..8cefbdc 100644
++--- a/grammar.ne
+++++ b/grammar.ne
++@@ -85,11 +85,11 @@ statement   ->  block               {% id %}
++ block       ->  "{" statements "}"
++                     {% v => new ast.Block(v[1]) %}
++ 
++-const_declaration   ->  "const" __ argument _ "=" _ expression
++-                            {% v => new ast.ConstDefinition(v[2], v[6]) %}
+++const_declaration   ->  "const" __ argument _ (type_specifier _):? "=" _ expression
+++                            {% v => new ast.ConstDefinition(v[2], v[4] ? v[4][0] : null, v[7]) %}
++ 
++-let_declaration     ->  "let" __ argument _ "=" _ expression
++-                            {% v => new ast.LetDeclaration(v[2], v[6]) %}
+++let_declaration     ->  "let" __ argument _ (type_specifier _):? ("=" _ expression):?
+++                            {% v => new ast.LetDeclaration(v[2], v[4] ? v[4][0] : null, v[5] ? v[5][2] : null) %}
++ 
++ if          ->  "if" _ "(" _ expression _ ")" _ statement
++                     {% v => new ast.If(v[4], v[8]) %}
++@@ -106,6 +106,9 @@ expressions ->  (_ expression (_ "," _ expression):*):? _
++ type_list   ->  (_ type (_ "," _ type):*):? _
++                     {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
++ 
+++type_specifier  ->  ":" _ type
+++                        {% v => v[2] %}
+++
++ type        ->  function_type   {% id %}
++             |   type_literal    {% id %}
++ 
++@@ -122,10 +125,10 @@ type_literal    ->  "int"
++ expression  ->  function        {% id %}
++             |   precedence_1    {% id %}
++ 
++-function    ->  "(" arguments ")" _ block
++-                    {% v => new ast.Function(v[1], v[4], fid()) %}
++-            |   "(" arguments ")" _ "=>" _ expression
++-                    {% v => new ast.Function(v[1], v[6], fid()) %}
+++function    ->  "(" arguments ")" _ (type_specifier _):? block
+++                    {% v => new ast.Function(v[1], v[4] ? v[4][0] : null, v[5], fid()) %}
+++            |   "(" arguments ")" _ (type_specifier _):? "=>" _ expression
+++                    {% v => new ast.Function(v[1], v[4] ? v[4][0] : null, v[7], fid()) %}
++ 
++ arguments   ->  (_ argument (_ "," _ argument):*):? _
++                     {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
++diff --git a/main.ts b/main.ts
++index 3f532a6..bf013a0 100644
++--- a/main.ts
+++++ b/main.ts
++@@ -2,6 +2,7 @@ import {
++     Grammar,
++     Parser,
++ } from "https://deno.land/x/nearley@2.19.7-deno/mod.ts";
+++import { Checker } from "./checker.ts";
++ import compiledGrammar from "./grammar.out.ts";
++ import { idGenerator } from "./utils.ts";
++ 
++@@ -16,3 +17,4 @@ const text = await Deno.readTextFile(Deno.args[0]);
++ const res = parse(text);
++ 
++ console.log(JSON.stringify(res, null, "│   "));
+++console.log(new Checker().checkProgram(res));
++-- 
++2.25.1
++
+diff --git a/speedrun-language/commits/0001-some-generation.patch b/speedrun-language/commits/0001-some-generation.patch
+new file mode 100644
+index 0000000..d63c306
+--- /dev/null
++++ b/speedrun-language/commits/0001-some-generation.patch
+@@ -0,0 +1,317 @@
++From 3b07ee48691969903402bfb7ad89f376b6d6ed0a Mon Sep 17 00:00:00 2001
++From: SimonFJ20 <simonfromjakobsen@gmail.com>
++Date: Sat, 2 Jul 2022 05:01:53 +0200
++Subject: [PATCH] some generation
++
++---
++ ast.ts            |  7 +++-
++ checker.ts        | 13 +++++--
++ code_generator.ts | 99 +++++++++++++++++++++++++++++++++++++++++++++++
++ grammar.ne        |  5 +--
++ main.ts           | 22 ++++++++++-
++ math.splang       |  3 ++
++ run.sh            |  2 +-
++ utils.ts          | 20 +++++-----
++ 8 files changed, 150 insertions(+), 21 deletions(-)
++ create mode 100644 code_generator.ts
++ create mode 100644 math.splang
++
++diff --git a/ast.ts b/ast.ts
++index 40be458..2cef7ad 100644
++--- a/ast.ts
+++++ b/ast.ts
++@@ -1,4 +1,4 @@
++-import { Option } from "./utils.ts";
+++import { id_generator, Option } from "./utils.ts";
++ 
++ export abstract class Node {
++     protected constructor(public id: string) {}
++@@ -81,9 +81,12 @@ export class FunctionType extends Type {
++     }
++ }
++ 
++-export abstract class Expression extends Statement {}
+++export abstract class Expression extends Node {}
++ 
++ export class Function extends Expression {
+++    private static fid_generator = id_generator();
+++    public fid = Function.fid_generator();
+++
++     public constructor(
++         public args: Argument[],
++         public return_type: Option<Type>,
++diff --git a/checker.ts b/checker.ts
++index 0526a7e..a3a5379 100644
++--- a/checker.ts
+++++ b/checker.ts
++@@ -33,6 +33,7 @@ const types_compatible = (a: Type, b: Type): boolean => {
++     // prettier-ignore
++     return match(a.id, [
++         ["VoidType", () => b.id === "VoidType"],
+++        ["IntType", () => b.id === "IntType"],
++         ["FunctionType", () => match(b.id, [
++             ["FunctionType", () => function_types_compatible(force(a), force(b))],
++             [_, () => false]
++@@ -98,6 +99,7 @@ export class SymbolTable {
++ }
++ 
++ export type Function = {
+++    id: number;
++     node: ast.Function;
++     type: FunctionType;
++     symbol_table: SymbolTable;
++@@ -106,7 +108,7 @@ export type Function = {
++ export type CheckerError = string;
++ 
++ export type CheckerResult = {
++-    symbol_table: SymbolTable;
+++    st: SymbolTable;
++     functions: Function[];
++     errors: CheckerError[];
++ };
++@@ -124,7 +126,7 @@ export class Checker {
++         this.errors = [];
++         this.check_statements(program);
++         return {
++-            symbol_table: this.symbol_table,
+++            st: this.symbol_table,
++             functions: this.functions,
++             errors: this.errors,
++         };
++@@ -237,7 +239,12 @@ export class Checker {
++             node.args.map((arg) => this.check_type(arg.type).expect("_")),
++             decl_return_type,
++         );
++-        this.functions.push({ node, type, symbol_table: this.symbol_table });
+++        this.functions.push({
+++            id: node.fid,
+++            node,
+++            type,
+++            symbol_table: this.symbol_table,
+++        });
++         return Ok(type);
++     }
++ 
++diff --git a/code_generator.ts b/code_generator.ts
++new file mode 100644
++index 0000000..48aa38f
++--- /dev/null
+++++ b/code_generator.ts
++@@ -0,0 +1,99 @@
+++import { SymbolTable, Function, Type } from "./checker.ts";
+++import * as ast from "./ast.ts";
+++import { force, match, _ } from "./utils.ts";
+++
+++export type Generator = {
+++    st: SymbolTable;
+++    functions: Function[];
+++};
+++
+++export const generate = (self: Generator, program: ast.Statement[]): string => {
+++    const code =
+++        "#include <stdio.h>\n" +
+++        "#include <stdlib.h>\n" +
+++        "#include <stdint.h>\n" +
+++        "#include <stdbool.h>\n" +
+++        "#include <string.h>\n" +
+++        "int main()\n{\n" +
+++        generate_statements(self, program) +
+++        "\n}\n";
+++    return code;
+++};
+++
+++const generate_statements = (
+++    self: Generator,
+++    nodes: ast.Statement[],
+++): string => {
+++    return nodes.map((node) => generate_statement(self, node)).join("\n");
+++};
+++
+++const generate_statement = (self: Generator, node: ast.Statement): string => {
+++    // prettier-ignore
+++    return match(node.id, [
+++        ["ConstDefinition", () => generate_const_definition(self, force(node))],
+++        [_, () => {
+++            throw new Error(`code generation not implemented for statement '${node.id}'`);
+++        }]
+++    ]);
+++};
+++
+++const generate_type = (self: Generator, type: Type): string => {
+++    // prettier-ignore
+++    return match(type.id, [
+++        ["FunctionType", () => "void*"],
+++        ["IntType", () => "int"],
+++        [_, () => {
+++            throw new Error(`code generation not implemented for type '${type.id}'`);
+++        }]
+++    ]);
+++};
+++
+++const generate_const_definition = (
+++    self: Generator,
+++    node: ast.ConstDefinition,
+++): string => {
+++    const type = generate_type(
+++        self,
+++        self.st.get(node.target.name).expect("_").type,
+++    );
+++    const name = node.target.name;
+++    const value = generate_expression(self, node.value);
+++    return `${type} ${name} = ${value};`;
+++};
+++
+++const generate_expression = (self: Generator, node: ast.Expression): string => {
+++    // prettier-ignore
+++    return match(node.id, [
+++        ["Function", () => generate_function(self, force(node))],
+++        ["BinaryOperation", () => generate_binary_operation(self, force(node))],
+++        ["Accessor", () => generate_accessor(force(node))],
+++        ["Int", () => generate_int(force(node))],
+++        [_, () => {
+++            throw new Error(`code generation not implemented for expression '${node.id}'`);
+++        }]
+++    ]);
+++};
+++
+++const generate_function = (self: Generator, node: ast.Function): string => {
+++    throw new Error("not implemented");
+++};
+++
+++const generate_binary_operation = (
+++    self: Generator,
+++    node: ast.BinaryOperation,
+++): string => {
+++    const operator = match(node.operation, [
+++        [ast.OperationType.Add, () => "+"],
+++        [ast.OperationType.Subtract, () => "-"],
+++        [ast.OperationType.Multiply, () => "*"],
+++        [ast.OperationType.Divide, () => "/"],
+++        [ast.OperationType.Modulus, () => "%"],
+++    ]);
+++    const left = generate_expression(self, node.left);
+++    const right = generate_expression(self, node.right);
+++    return `(${left} ${operator} ${right})`;
+++};
+++
+++const generate_accessor = (node: ast.Accessor): string => node.name;
+++
+++const generate_int = (node: ast.Int): string => node.value.toString();
++diff --git a/grammar.ne b/grammar.ne
++index 5bf170c..8524f2e 100644
++--- a/grammar.ne
+++++ b/grammar.ne
++@@ -3,7 +3,7 @@
++ @{%
++ import moo from "https://deno.land/x/moo@0.5.1.1/index.ts";
++ import * as ast from './ast.ts';
++-import { id_generator, Some, None } from './utils.ts';
+++import { Some, None } from './utils.ts';
++ const lexer = moo.compile({
++     nl:         {match: /[\n;]+/, lineBreaks: true},
++     ws:         /[ \t]+/,
++@@ -63,9 +63,6 @@ const lexer = moo.compile({
++     qmark:      '?',
++     colon:      ':',
++ });
++-
++-const fid = id_generator();
++-
++ %}
++ 
++ @lexer lexer
++diff --git a/main.ts b/main.ts
++index 7badac9..bc54852 100644
++--- a/main.ts
+++++ b/main.ts
++@@ -3,6 +3,7 @@ import {
++     Parser,
++ } from "https://deno.land/x/nearley@2.19.7-deno/mod.ts";
++ import { Checker } from "./checker.ts";
+++import { generate } from "./code_generator.ts";
++ import compiled_grammar from "./grammar.out.ts";
++ 
++ const parse = (text: string) => {
++@@ -11,9 +12,28 @@ const parse = (text: string) => {
++     return parser.results[0];
++ };
++ 
+++const compileToBinary = async (target_file_name: string, c_code: string) => {
+++    const temp_c_file = await Deno.makeTempFile();
+++    await Deno.writeTextFile(temp_c_file, c_code);
+++    const process = Deno.run({
+++        cmd: ["gcc", "-xc", temp_c_file, "-o", target_file_name],
+++    });
+++    await process.status();
+++    process.close();
+++    Deno.remove(temp_c_file);
+++};
+++
++ if (Deno.args.length < 1) throw new Error("not enough args");
++ const text = await Deno.readTextFile(Deno.args[0]);
++ const res = parse(text);
++ 
++ console.log(JSON.stringify(res, null, "│   "));
++-console.log(new Checker().check_program(res));
+++const { functions, st, errors } = new Checker().check_program(res);
+++if (errors.length === 0) {
+++    const c_code = generate({ st, functions }, res);
+++    console.log(c_code);
+++    await compileToBinary("a.out", c_code);
+++} else {
+++    console.log("Compilation failed:");
+++    for (const v of errors) console.log(errors);
+++}
++diff --git a/math.splang b/math.splang
++new file mode 100644
++index 0000000..a36d1d7
++--- /dev/null
+++++ b/math.splang
++@@ -0,0 +1,3 @@
+++
+++const a: int = 1 + 1
+++const b: int = a + 1
++diff --git a/run.sh b/run.sh
++index 049c0fd..9bdb953 100755
++--- a/run.sh
+++++ b/run.sh
++@@ -1 +1 @@
++-nearleyc grammar.ne > grammar.out.ts && deno run --allow-read --allow-write main.ts $1
++\ No newline at end of file
+++nearleyc grammar.ne > grammar.out.ts && deno run --allow-read --allow-write --allow-run main.ts $1
++\ No newline at end of file
++diff --git a/utils.ts b/utils.ts
++index b9c66be..72d8733 100644
++--- a/utils.ts
+++++ b/utils.ts
++@@ -1,13 +1,3 @@
++-export const id_generator = () =>
++-    (
++-        (ids) => () =>
++-            ids.next().value!
++-    )(
++-        (function* () {
++-            for (let i = 0; true; i++) yield i;
++-        })(),
++-    );
++-
++ export class Option<T> {
++     private static None = Symbol("None");
++ 
++@@ -132,3 +122,13 @@ export const match = <V, T>(
++         if ((v === _ || v === value) && action !== Or) return action();
++     throw new Error("unexhaustive match");
++ };
+++
+++export const id_generator = () =>
+++    (
+++        (ids) => () =>
+++            ids.next().value!
+++    )(
+++        (function* () {
+++            for (let i = 0; true; i++) yield i;
+++        })(),
+++    );
++-- 
++2.25.1
++
+diff --git a/speedrun-language/commits/0001-some-rewriting.patch b/speedrun-language/commits/0001-some-rewriting.patch
+new file mode 100644
+index 0000000..8f4360e
+--- /dev/null
++++ b/speedrun-language/commits/0001-some-rewriting.patch
+@@ -0,0 +1,484 @@
++From 1eae0cda01588cb02e9f398df0ff94ed352b5fd0 Mon Sep 17 00:00:00 2001
++From: SimonFJ20 <simonfromjakobsen@gmail.com>
++Date: Fri, 1 Jul 2022 04:53:57 +0200
++Subject: [PATCH] some rewriting
++
++---
++ ast.ts     |   8 +-
++ checker.ts | 257 +++++++++++++++++++++++------------------------------
++ grammar.ne |  16 ++--
++ main.ts    |   1 -
++ utils.ts   |  40 +++++++++
++ 5 files changed, 162 insertions(+), 160 deletions(-)
++
++diff --git a/ast.ts b/ast.ts
++index 5866427..ebbc71e 100644
++--- a/ast.ts
+++++ b/ast.ts
++@@ -11,11 +11,7 @@ export class Block extends Statement {
++ }
++ 
++ export class ConstDefinition extends Statement {
++-    public constructor(
++-        public target: Argument,
++-        public type: Type | null,
++-        public value: Expression,
++-    ) {
+++    public constructor(public target: Argument, public value: Expression) {
++         super("ConstDefinition");
++     }
++ }
++@@ -23,7 +19,6 @@ export class ConstDefinition extends Statement {
++ export class LetDeclaration extends Statement {
++     public constructor(
++         public target: Argument,
++-        public type: Type | null,
++         public value: Expression | null,
++     ) {
++         super("LetDeclaration");
++@@ -85,7 +80,6 @@ export class Function extends Expression {
++         public args: Argument[],
++         public returnType: Type | null,
++         public body: Statement,
++-        public fid: number,
++     ) {
++         super("Function");
++     }
++diff --git a/checker.ts b/checker.ts
++index 1abf1db..ca2cfed 100644
++--- a/checker.ts
+++++ b/checker.ts
++@@ -1,22 +1,45 @@
++ import * as ast from "./ast.ts";
++-import { idGenerator } from "./utils.ts";
++-
++-export type Type<ID extends string = string> = { id: ID };
++-export type IntType = Type<"int">;
++-export type StringType = Type<"string">;
++-export type FunctionType = Type<"function"> & {
++-    args: Type[];
++-    returnType: Type;
+++import { Err, force, Ok, Result } from "./utils.ts";
+++
+++export abstract class Type {
+++    protected constructor(public id: string) {}
+++}
+++
+++export class IntType extends Type {
+++    public constructor() {
+++        super("IntType");
+++    }
+++}
+++
+++export class StringType extends Type {
+++    public constructor() {
+++        super("StringType");
+++    }
+++}
+++
+++export class FunctionType extends Type {
+++    public constructor(public args: Type[], public returnType: Type) {
+++        super("FunctionType");
+++    }
+++}
+++
+++const typesCompatible = (a: Type, b: Type) => {
+++    switch (a.id) {
+++        default:
+++            throw new Error(
+++                `typesCompatible unexhaustive '${a.id}' and '${b.id}'`,
+++            );
+++    }
++ };
++ 
++ export type Symbol = {
+++    name: string;
++     type: Type;
++-    symbolTable: SymbolTable;
+++    mutable: boolean;
++ };
++ 
++ export class SymbolTable {
++-    private names: { [key: string]: Symbol } = {};
++-    private functions: ast.Function[] = [];
+++    private symbols = new Map<string, Symbol>();
++     private children: SymbolTable[] = [];
++ 
++     public constructor(private parent?: SymbolTable) {}
++@@ -25,194 +48,140 @@ export class SymbolTable {
++         this.children.push(child);
++     }
++ 
++-    public setName(name: string, symbol: Symbol) {
++-        this.names[name] = symbol;
+++    public declaredLocally(name: string): boolean {
+++        return this.symbols.has(name);
++     }
++ 
++-    public getName(name: string): Symbol {
++-        const localName = this.names[name];
++-        if (localName) return localName;
++-        else if (this.parent) return this.parent.getName(name);
++-        else throw new Error(`name '${name}' is not defined`);
+++    public declared(name: string): boolean {
+++        return (
+++            this.declaredLocally(name) || (this.parent?.declared(name) ?? false)
+++        );
++     }
++ 
++-    public nameDefinedLocally(name: string): boolean {
++-        return this.names[name] !== undefined;
+++    public getLocally(name: string): Result<Symbol, string> {
+++        const symbol = this.symbols.get(name);
+++        return symbol ? Ok(symbol) : Err("cannot find symbol");
++     }
++ 
++-    public nameDefined(name: string): boolean {
++-        return (
++-            this.nameDefinedLocally(name) ||
++-            (this.parent?.nameDefined(name) ?? false)
+++    public get(name: string): Result<Symbol, string> {
+++        return this.getLocally(name).match(
+++            (v) => Ok(v),
+++            (e) => Err(e),
++         );
++     }
++ 
++-    public addFunction(node: ast.Function) {
++-        this.functions.push(node);
+++    public set(symbol: Symbol) {
+++        this.symbols.set(symbol.name, symbol);
++     }
++ }
++ 
++-export class CheckerError extends Error {
++-    public constructor(message: string) {
++-        super(message);
++-    }
++-}
+++export type Function = {
+++    node: ast.Function;
+++    type: FunctionType;
+++    symbolTable: SymbolTable;
+++};
+++
+++export type CheckerError = string;
++ 
++ export type CheckerResult = {
++     symbolTable: SymbolTable;
+++    functions: Function[];
++     errors: CheckerError[];
++ };
++ 
++ export class Checker {
++-    private symbolTable: SymbolTable = new SymbolTable();
++-    private errors: CheckerError[] = [];
++-
++-    public constructor() {}
+++    private symbolTable!: SymbolTable;
+++    private symbolTableHistory!: SymbolTable[];
+++    private functions!: Function[];
+++    private errors!: CheckerError[];
++ 
++     public checkProgram(program: ast.Statement[]): CheckerResult {
++         this.symbolTable = new SymbolTable();
+++        this.symbolTableHistory = [];
+++        this.functions = [];
+++        this.errors = [];
++         this.checkStatements(program);
++         return {
++             symbolTable: this.symbolTable,
+++            functions: this.functions,
++             errors: this.errors,
++         };
++     }
++ 
++-    private catchErrors<T>(f: () => T) {
++-        try {
++-            f();
++-        } catch (catched) {
++-            if (catched instanceof CheckerError) this.errors.push(catched);
++-            else throw catched;
++-        }
++-    }
++-
++-    private checkStatements(nodes: ast.Statement[]) {
++-        nodes.forEach((node) =>
++-            this.catchErrors(() => this.checkStatement(node)),
+++    public checkStatements(nodes: ast.Statement[]) {
+++        nodes.forEach((v) =>
+++            this.checkStatement(v).match(
+++                () => {},
+++                (e) => {
+++                    this.errors.push(e);
+++                },
+++            ),
++         );
++     }
++ 
++-    private checkStatement(node: ast.Statement) {
+++    public checkStatement(node: ast.Statement): Result<null, CheckerError> {
++         switch (node.id) {
++-            case "Block":
++-                return this.checkBlock(force(node));
++             case "ConstDefinition":
++                 return this.checkConstDefinition(force(node));
++-            case "BinaryOperation":
++-            case "Call":
++-                return this.checkExpression(node);
++             default:
++                 throw new Error(`unchecked statement '${node.id}'`);
++         }
++     }
++ 
++-    private checkBlock(node: ast.Block) {
++-        const parentTable = this.symbolTable;
++-        this.symbolTable = new SymbolTable(parentTable);
++-        this.checkStatements(node.body);
++-        this.symbolTable = parentTable;
++-    }
++-
++-    private checkConstDefinition(node: ast.ConstDefinition) {
++-        if (this.symbolTable.nameDefinedLocally(node.target.name))
++-            throw new Error(`multiple definition of ${node.target.name}`);
++-        const type = this.checkExpression(node.value);
++-        this.symbolTable.setName(node.target.name, {
++-            type,
++-            symbolTable: this.symbolTable,
+++    public checkConstDefinition(
+++        node: ast.ConstDefinition,
+++    ): Result<null, CheckerError> {
+++        if (this.symbolTable.declaredLocally(node.target.name))
+++            return Err(`multiple definitions of symbol '${node.target.name}'`);
+++        const valueTypeResult = this.checkExpression(node.value);
+++        if (!valueTypeResult.ok) return valueTypeResult.transform();
+++        const valueType = valueTypeResult.value!;
+++        if (node.target.type && !typesCompatible(node.target.type, valueType))
+++            return Err("types incompatible");
+++        this.symbolTable.set({
+++            name: node.target.name,
+++            type: valueType,
+++            mutable: false,
++         });
+++        return Ok(null);
++     }
++ 
++-    private checkType(node: ast.Type): Type {
++-        switch (node.id) {
++-            case "IntType":
++-                return { id: "int" };
++-            default:
++-                throw new Error(`unchecked type '${node.id}'`);
++-        }
++-    }
++-
++-    private checkExpression(node: ast.Expression): Type {
+++    public checkExpression(node: ast.Expression): Result<Type, CheckerError> {
++         switch (node.id) {
++             case "Function":
++                 return this.checkFunction(force(node));
++-            case "BinaryOperation":
++-                return this.checkBinaryOperation(force(node));
++-            case "Call":
++-                return this.checkCall(force(node));
++-            case "Accessor":
++-                return this.checkAccessor(force(node));
++-            case "Int":
++-                return { id: "int" };
++             default:
++                 throw new Error(`unchecked expression '${node.id}'`);
++         }
++     }
++ 
++-    private checkFunction(node: ast.Function): Type {
++-        const parentTable = this.symbolTable;
++-        this.symbolTable = new SymbolTable(parentTable);
++-        const args = node.args.map((arg) => {
++-            if (this.symbolTable.nameDefinedLocally(arg.name))
++-                throw new Error("already defined");
++-            const type = this.checkType(arg.type);
++-            this.symbolTable.setName(arg.name, {
++-                type,
++-                symbolTable: this.symbolTable,
++-            });
++-            return type;
++-        });
++-        this.checkStatement(node.body);
++-        this.symbolTable = parentTable;
++-        this.symbolTable.addFunction(node);
++-        return {
++-            id: "function",
++-            args,
++-            returnType: node.returnType,
++-        } as FunctionType;
++-    }
++-
++-    private checkBinaryOperation(node: ast.BinaryOperation): Type {
++-        const leftType = this.checkExpression(node.left);
++-        const rightType = this.checkExpression(node.right);
++-        switch (node.operation) {
++-            case ast.OperationType.Add:
++-                if (leftType.id === "int" && rightType.id !== "int") {
++-                    throw new Error("type mismatch");
++-                } else if (
++-                    leftType.id === "string" &&
++-                    rightType.id !== "string"
++-                ) {
++-                    throw new Error("type mismatch");
++-                }
++-                break;
++-            case ast.OperationType.Subtract:
++-            case ast.OperationType.Multiply:
++-            case ast.OperationType.Divide:
++-            case ast.OperationType.Modulus:
++-                if (leftType.id !== "int" || rightType.id !== "int") {
++-                    throw new Error(
++-                        `type mismatch '${leftType}' and '${rightType}'`,
++-                    );
++-                }
+++    public checkFunction(node: ast.Function): Result<Type, CheckerError> {
+++        return Ok(
+++            new FunctionType(
+++                node.args.map((arg) => this.checkType(arg.type).unwrap()),
+++                node.returnType!,
+++            ),
+++        );
+++    }
+++
+++    public checkType(node: ast.Type): Result<Type, CheckerError> {
+++        switch (node.id) {
+++            case "IntType":
+++                return Ok(new IntType());
+++            default:
+++                throw new Error(`unchecked type '${node.id}'`);
++         }
++-        return leftType;
++     }
++ 
++-    private checkCall(node: ast.Call): Type {
++-        const calleeType = this.checkExpression(node.callee) as FunctionType;
++-        if (calleeType.id !== "function")
++-            throw new Error(`cannot call type '${calleeType}'`);
++-        return calleeType.returnType;
+++    private branchSymbolTable() {
+++        this.symbolTableHistory.push(this.symbolTable);
+++        this.symbolTable = new SymbolTable(this.symbolTable);
++     }
++ 
++-    private checkAccessor(node: ast.Accessor): Type {
++-        if (!this.symbolTable.nameDefined(node.name))
++-            throw new Error(`undefined symbol '${node.name}'`);
++-        const symbol = this.symbolTable.getName(node.name);
++-        return symbol.type;
+++    private mergeSymbolTable() {
+++        const symbolTable = this.symbolTableHistory.pop();
+++        if (!symbolTable) throw new Error("no symbol table history");
+++        symbolTable.addChild(this.symbolTable);
+++        this.symbolTable = symbolTable;
++     }
++ }
++-
++-const force = <T extends U, U>(v: U) => v as unknown as T;
++diff --git a/grammar.ne b/grammar.ne
++index 8cefbdc..e2b9ecc 100644
++--- a/grammar.ne
+++++ b/grammar.ne
++@@ -85,11 +85,11 @@ statement   ->  block               {% id %}
++ block       ->  "{" statements "}"
++                     {% v => new ast.Block(v[1]) %}
++ 
++-const_declaration   ->  "const" __ argument _ (type_specifier _):? "=" _ expression
++-                            {% v => new ast.ConstDefinition(v[2], v[4] ? v[4][0] : null, v[7]) %}
+++const_declaration   ->  "const" __ argument _ "=" _ expression
+++                            {% v => new ast.ConstDefinition(v[2], v[6]) %}
++ 
++-let_declaration     ->  "let" __ argument _ (type_specifier _):? ("=" _ expression):?
++-                            {% v => new ast.LetDeclaration(v[2], v[4] ? v[4][0] : null, v[5] ? v[5][2] : null) %}
+++let_declaration     ->  "let" __ argument _ ("=" _ expression):?
+++                            {% v => new ast.LetDeclaration(v[2], v[5] ? v[5][2] : null) %}
++ 
++ if          ->  "if" _ "(" _ expression _ ")" _ statement
++                     {% v => new ast.If(v[4], v[8]) %}
++@@ -126,15 +126,15 @@ expression  ->  function        {% id %}
++             |   precedence_1    {% id %}
++ 
++ function    ->  "(" arguments ")" _ (type_specifier _):? block
++-                    {% v => new ast.Function(v[1], v[4] ? v[4][0] : null, v[5], fid()) %}
+++                    {% v => new ast.Function(v[1], v[4] ? v[4][0] : null, v[5]) %}
++             |   "(" arguments ")" _ (type_specifier _):? "=>" _ expression
++-                    {% v => new ast.Function(v[1], v[4] ? v[4][0] : null, v[7], fid()) %}
+++                    {% v => new ast.Function(v[1], v[4] ? v[4][0] : null, v[7]) %}
++ 
++ arguments   ->  (_ argument (_ "," _ argument):*):? _
++                     {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
++ 
++-argument    ->  %name _ ":" _ type
++-                    {% v => new ast.Argument(v[0].value, v[4]) %}
+++argument    ->  %name _ type_specifier
+++                    {% v => new ast.Argument(v[0].value, v[2]) %}
++ 
++ precedence_1    ->  precedence_2    {% id %}
++ precedence_2    ->  precedence_3    {% id %}
++diff --git a/main.ts b/main.ts
++index bf013a0..5797142 100644
++--- a/main.ts
+++++ b/main.ts
++@@ -4,7 +4,6 @@ import {
++ } from "https://deno.land/x/nearley@2.19.7-deno/mod.ts";
++ import { Checker } from "./checker.ts";
++ import compiledGrammar from "./grammar.out.ts";
++-import { idGenerator } from "./utils.ts";
++ 
++ const parse = (text: string) => {
++     const parser = new Parser(Grammar.fromCompiled(compiledGrammar));
++diff --git a/utils.ts b/utils.ts
++index 7ae7f3a..97deb6d 100644
++--- a/utils.ts
+++++ b/utils.ts
++@@ -7,3 +7,43 @@ export const idGenerator = () =>
++             for (let i = 0; true; i++) yield i;
++         })(),
++     );
+++
+++export class Result<T, E> {
+++    private constructor(
+++        public readonly ok: boolean,
+++        public value: T | null,
+++        public error: E | null,
+++    ) {}
+++
+++    public static ok<T, E>(value: T): Result<T, E> {
+++        return new Result<T, E>(true, value, null);
+++    }
+++
+++    public static error<T, E>(error: E): Result<T, E> {
+++        return new Result<T, E>(false, null, error);
+++    }
+++
+++    public transform<NT, NE extends E>(): Result<NT, NE> {
+++        if (!this.ok) return this as unknown as Result<NT, NE>;
+++        else throw new Error("cannot transform ok result");
+++    }
+++
+++    public unwrap(): T {
+++        if (this.ok) return this.value!;
+++        else throw new Error("cannot unwrap non-ok result");
+++    }
+++
+++    public expect(msg: string): T {
+++        if (this.ok) return this.value!;
+++        else throw new Error(`cannot unwrap non-ok result, expected ${msg}`);
+++    }
+++
+++    public match<Y>(caseOk: (v: T) => Y, caseError: (e: E) => Y): Y {
+++        return this.ok ? caseOk(this.value!) : caseError(this.error!);
+++    }
+++}
+++
+++export const Ok = <T, E>(value: T) => Result.ok<T, E>(value);
+++export const Err = <T, E>(error: E) => Result.error<T, E>(error);
+++
+++export const force = <T extends U, U>(v: U) => v as unknown as T;
++-- 
++2.25.1
++
+diff --git a/speedrun-language/commits/0001-stuff.patch b/speedrun-language/commits/0001-stuff.patch
+new file mode 100644
+index 0000000..928b652
+--- /dev/null
++++ b/speedrun-language/commits/0001-stuff.patch
+@@ -0,0 +1,150 @@
++From e75e2bef38a8eb54663bb6b5629eaaed6b0c547d Mon Sep 17 00:00:00 2001
++From: SimonFJ20 <simonfromjakobsen@gmail.com>
++Date: Tue, 21 Jun 2022 04:26:51 +0200
++Subject: [PATCH] stuff
++
++---
++ ast.ts     | 37 +++++++++++++++++++++++++++++++++++++
++ grammar.ne | 31 +++++++++++++++++++------------
++ main.ts    | 13 +------------
++ 3 files changed, 57 insertions(+), 24 deletions(-)
++ create mode 100644 ast.ts
++
++diff --git a/ast.ts b/ast.ts
++new file mode 100644
++index 0000000..a2a4096
++--- /dev/null
+++++ b/ast.ts
++@@ -0,0 +1,37 @@
+++export abstract class Node {
+++    protected constructor(public id: string) {}
+++}
+++
+++export abstract class Expression extends Node {}
+++
+++export enum OperationType {
+++    Add,
+++    Subtract,
+++    Multiply,
+++    Divide,
+++    Modulus,
+++}
+++
+++export class BinaryOperation extends Expression {
+++    public constructor(
+++        public operation: OperationType,
+++        public left: Value,
+++        public right: Value,
+++    ) {
+++        super("BinaryOperation");
+++    }
+++}
+++
+++export abstract class Value extends Expression {}
+++
+++export class String extends Value {
+++    public constructor(public value: string) {
+++        super("Value");
+++    }
+++}
+++
+++export class Int extends Value {
+++    public constructor(public value: number) {
+++        super("Int");
+++    }
+++}
++diff --git a/grammar.ne b/grammar.ne
++index db5f5da..0fdf31c 100644
++--- a/grammar.ne
+++++ b/grammar.ne
++@@ -2,6 +2,13 @@
++ 
++ @{%
++ import moo from "https://deno.land/x/moo@0.5.1.1/index.ts";
+++import {
+++    Expression,
+++    OperationType,
+++    BinaryOperation,
+++    String,
+++    Int,
+++} from './ast.ts'
++ const lexer = moo.compile({
++     nl:         {match: /[\n;]+/, lineBreaks: true},
++     ws:         /[ \t]+/,
++@@ -13,7 +20,7 @@ const lexer = moo.compile({
++     char:       {match: /'(?:[^'\\]|\\[\s\S])'/, value: s => s.slice(1, -1), lineBreaks: true},
++     string:     {match: /"(?:[^"\\]|\\[\s\S])*"/, value: s => s.slice(1, -1), lineBreaks: true},
++     name:       {match: /[a-zA-Z0-9_]+/, type: moo.keywords({
++-        keyword: ['func', 'return', 'if', 'else', 'while', 'for', 'break', 'continue', 'let', 'import', 'struct', 'new', 'delete']
+++        keyword: ['let', 'mut', 'if', 'else']
++     })},
++     dot:        '.',
++ 
++@@ -67,32 +74,32 @@ const lexer = moo.compile({
++ 
++ 
++ statements  ->  (_ statement (_nl_ statement):*):? _
++-    {% v => (v[0] ? [v[0][1], ...v[0][2].map((v: string) => v[1])] : []).map(v => `${v};\n`) %}
+++    {% v => v[0] ? [v[0][1], ...v[0][2].map((v: string) => v[1])] : [] %}
++ 
++-statement   ->  expression
+++statement   ->  expression  {% id %}
++ 
++-expression  ->  add_sub
+++expression  ->  add_sub     {% id %}
++ 
++ add_sub     ->  add_sub _ "+" _ mul_div_mod
++-                    {% v => `(${v[0]} + ${v[4]})` %}
+++                    {% v => new BinaryOperation(OperationType.Add, v[0], v[4]) %}
++             |   add_sub _ "-" _ mul_div_mod
++-                    {% v => `(${v[0]} - ${v[4]})` %}
+++                    {% v => new BinaryOperation(OperationType.Subtract, v[0], v[4]) %}
++             |   mul_div_mod
++ 
++ mul_div_mod ->  mul_div_mod _ "*" _ value
++-                    {% v => `(${v[0]} * ${v[4]})` %}
+++                    {% v => new BinaryOperation(OperationType.Multiply, v[0], v[4]) %}
++             |   mul_div_mod _ "/" _ value
++-                    {% v => `(${v[0]} / ${v[4]})` %}
+++                    {% v => new BinaryOperation(OperationType.Divide, v[0], v[4]) %}
++             |   mul_div_mod _ "%" _ value
++-                    {% v => `(${v[0]} % ${v[4]})` %}
+++                    {% v => new BinaryOperation(OperationType.Modulus, v[0], v[4]) %}
++             |   value
++ 
++ value       ->  %int
++-                    {% v => `${v[0].value}` %}
+++                    {% v => new Int(v[0].value) %}
++             |   %string
++-                    {% v => `"${v[0].value}"` %}
+++                    {% v => new String(v[0].value) %}
++             |   "(" _ expression _ ")"
++-                    {% v => `(${v[2]})` %} 
+++                    {% v => v %} 
++ 
++ _           ->  __:?
++ __          ->  (%ws|%nl|%comment_sl|%comment_ml):+
++diff --git a/main.ts b/main.ts
++index 5d8ef47..1d118a1 100644
++--- a/main.ts
+++++ b/main.ts
++@@ -15,15 +15,4 @@ const parse = (text: string) => {
++ const text = await Deno.readTextFile(Deno.args[0]);
++ const res = parse(text);
++ 
++-const c = `// compiled
++-#include <stdio.h>
++-#include <stdlib.h>
++-#include <stdbool.h>
++-#include <stdint.h>
++-int main(int argc, char** argv)
++-{
++-    ${res}
++-}
++-`;
++-
++-await Deno.writeTextFile("out.c", c);
+++console.log(JSON.stringify(res, null, "│   "));
++-- 
++2.25.1
++
+diff --git a/speedrun-language/commits/0001-weak-af-typing.patch b/speedrun-language/commits/0001-weak-af-typing.patch
+new file mode 100644
+index 0000000..31a91b2
+--- /dev/null
++++ b/speedrun-language/commits/0001-weak-af-typing.patch
+@@ -0,0 +1,503 @@
++From 2dcf65aeb81bbc4f21f624416844aa076d7031bf Mon Sep 17 00:00:00 2001
++From: SimonFJ20 <simonfromjakobsen@gmail.com>
++Date: Wed, 22 Jun 2022 02:34:45 +0200
++Subject: [PATCH] weak af typing
++
++---
++ ast.ts          |  96 +++++++++++++++++++++++++--
++ compile_to_c.ts | 172 ++++++++++++++++++++++++++++++++++++++++++++++++
++ grammar.ne      | 122 ++++++++++++++++++++++++++--------
++ main.ts         |   5 +-
++ test.splang     |   7 +-
++ 5 files changed, 365 insertions(+), 37 deletions(-)
++ create mode 100644 compile_to_c.ts
++
++diff --git a/ast.ts b/ast.ts
++index a2a4096..a3dac44 100644
++--- a/ast.ts
+++++ b/ast.ts
++@@ -2,7 +2,81 @@ export abstract class Node {
++     protected constructor(public id: string) {}
++ }
++ 
++-export abstract class Expression extends Node {}
+++export abstract class Statement extends Node {}
+++
+++export class Block extends Statement {
+++    public constructor(public body: Statement[]) {
+++        super("Block");
+++    }
+++}
+++
+++export class ConstDeclaration extends Statement {
+++    public constructor(public target: Argument, public value: Expression) {
+++        super("ConstDeclaration");
+++    }
+++}
+++
+++export class LetDeclaration extends Statement {
+++    public constructor(public target: Argument, public value: Expression) {
+++        super("LetDeclaration");
+++    }
+++}
+++
+++export class If extends Statement {
+++    public constructor(public condition: Expression, public body: Statement) {
+++        super("If");
+++    }
+++}
+++
+++export class IfElse extends Statement {
+++    public constructor(
+++        public condition: Expression,
+++        public truhty: Statement,
+++        public falsy: Statement,
+++    ) {
+++        super("IfElse");
+++    }
+++}
+++
+++export class While extends Statement {
+++    public constructor(public condition: Expression, public body: Statement) {
+++        super("While");
+++    }
+++}
+++
+++export abstract class Type extends Statement {}
+++
+++export class IntType extends Type {
+++    public constructor() {
+++        super("IntType");
+++    }
+++}
+++
+++export class StringType extends Type {
+++    public constructor() {
+++        super("StringType");
+++    }
+++}
+++
+++export class FunctionType extends Type {
+++    public constructor() {
+++        super("FunctionType");
+++    }
+++}
+++
+++export abstract class Expression extends Statement {}
+++
+++export class Function extends Expression {
+++    public constructor(public args: Argument[], public body: Statement) {
+++        super("Function");
+++    }
+++}
+++
+++export class Argument extends Node {
+++    public constructor(public name: string, public type: Type) {
+++        super("Argument");
+++    }
+++}
++ 
++ export enum OperationType {
++     Add,
++@@ -22,16 +96,28 @@ export class BinaryOperation extends Expression {
++     }
++ }
++ 
+++export class Call extends Expression {
+++    public constructor(public callee: Expression, public args: Expression[]) {
+++        super("Call");
+++    }
+++}
+++
++ export abstract class Value extends Expression {}
++ 
+++export class Int extends Value {
+++    public constructor(public value: number) {
+++        super("Int");
+++    }
+++}
+++
++ export class String extends Value {
++     public constructor(public value: string) {
++-        super("Value");
+++        super("String");
++     }
++ }
++ 
++-export class Int extends Value {
++-    public constructor(public value: number) {
++-        super("Int");
+++export class Accessor extends Value {
+++    public constructor(public name: string) {
+++        super("Accessor");
++     }
++ }
++diff --git a/compile_to_c.ts b/compile_to_c.ts
++new file mode 100644
++index 0000000..adb0aa0
++--- /dev/null
+++++ b/compile_to_c.ts
++@@ -0,0 +1,172 @@
+++import * as ast from "./ast.ts";
+++
+++export const compileToC = (program: ast.Statement[]): string => {
+++    const symbolTable = new Checker().checkProgram(program);
+++    console.log(JSON.stringify(symbolTable, null, 4));
+++    return "";
+++};
+++
+++type ValueType = "int" | "string" | "function";
+++
+++type Symbol = {
+++    type: ValueType;
+++};
+++
+++class SymbolTable {
+++    private names: { [key: string]: Symbol } = {};
+++    private functions: ast.Function[] = [];
+++
+++    public constructor(private parent?: SymbolTable) {}
+++
+++    public setName(name: string, symbol: Symbol) {
+++        this.names[name] = symbol;
+++    }
+++
+++    public getName(name: string): Symbol {
+++        const localName = this.names[name];
+++        if (localName) return localName;
+++        else if (this.parent) return this.parent.getName(name);
+++        else throw new Error(`name '${name}' is not defined`);
+++    }
+++
+++    public nameDefinedLocally(name: string): boolean {
+++        return this.names[name] !== undefined;
+++    }
+++
+++    public nameDefined(name: string): boolean {
+++        return (
+++            this.nameDefinedLocally(name) ||
+++            (this.parent?.nameDefined(name) ?? false)
+++        );
+++    }
+++
+++    public addFunction(node: ast.Function) {
+++        this.functions.push(node);
+++    }
+++}
+++
+++class Checker {
+++    private symbolTable: SymbolTable = new SymbolTable();
+++
+++    public constructor() {}
+++
+++    public checkProgram(program: ast.Statement[]): SymbolTable {
+++        this.symbolTable = new SymbolTable();
+++        this.checkStatements(program);
+++        return this.symbolTable;
+++    }
+++
+++    private checkStatements(nodes: ast.Statement[]) {
+++        nodes.forEach((node) => this.checkStatement(node));
+++    }
+++
+++    private checkStatement(node: ast.Statement) {
+++        switch (node.id) {
+++            case "Block":
+++                return this.checkBlock(force(node));
+++            case "ConstDeclaration":
+++                return this.checkConstDeclaration(force(node));
+++            case "BinaryOperation":
+++            case "Call":
+++                return this.checkExpression(node);
+++            default:
+++                throw new Error(`unchecked statement '${node.id}'`);
+++        }
+++    }
+++
+++    private checkBlock(node: ast.Block) {
+++        const parentTable = this.symbolTable;
+++        this.symbolTable = new SymbolTable(parentTable);
+++        this.checkStatements(node.body);
+++        this.symbolTable = parentTable;
+++    }
+++
+++    private checkConstDeclaration(node: ast.ConstDeclaration) {
+++        if (this.symbolTable.nameDefinedLocally(node.target.name))
+++            throw new Error(`multiple definition of ${node.target.name}`);
+++        const type = this.checkExpression(node.value);
+++        this.symbolTable.setName(node.target.name, { type });
+++    }
+++
+++    private checkType(node: ast.Type): ValueType {
+++        switch (node.id) {
+++            case "IntType":
+++                return "int";
+++            default:
+++                throw new Error(`unchecked type '${node.id}'`);
+++        }
+++    }
+++
+++    private checkExpression(node: ast.Expression): ValueType {
+++        switch (node.id) {
+++            case "Function":
+++                return this.checkFunction(force(node));
+++            case "BinaryOperation":
+++                return this.checkBinaryOperation(force(node));
+++            case "Call":
+++                return this.checkCall(force(node));
+++            case "Accessor":
+++                return this.checkAccessor(force(node));
+++            case "Int":
+++                return "int";
+++            default:
+++                throw new Error(`unchecked expression '${node.id}'`);
+++        }
+++    }
+++
+++    private checkFunction(node: ast.Function): ValueType {
+++        const parentTable = this.symbolTable;
+++        this.symbolTable = new SymbolTable(parentTable);
+++        node.args.forEach((arg) => {
+++            if (this.symbolTable.nameDefinedLocally(arg.name))
+++                throw new Error("already defined");
+++            this.symbolTable.setName(arg.name, {
+++                type: this.checkType(arg.type),
+++            });
+++        });
+++        this.checkStatement(node.body);
+++        this.symbolTable = parentTable;
+++        this.symbolTable.addFunction(node);
+++        return "function";
+++    }
+++
+++    private checkBinaryOperation(node: ast.BinaryOperation): ValueType {
+++        const leftType = this.checkExpression(node.left);
+++        const rightType = this.checkExpression(node.right);
+++        switch (node.operation) {
+++            case ast.OperationType.Add:
+++                if (leftType === "int" && rightType !== "int") {
+++                    throw new Error("type mismatch");
+++                } else if (leftType === "string" && rightType !== "string") {
+++                    throw new Error("type mismatch");
+++                }
+++                break;
+++            case ast.OperationType.Subtract:
+++            case ast.OperationType.Multiply:
+++            case ast.OperationType.Divide:
+++            case ast.OperationType.Modulus:
+++                if (leftType !== "int" || rightType !== "int") {
+++                    throw new Error(
+++                        `type mismatch '${leftType}' and '${rightType}'`,
+++                    );
+++                }
+++        }
+++        return leftType;
+++    }
+++
+++    private checkCall(node: ast.Call): ValueType {
+++        const calleeType = this.checkExpression(node.callee);
+++        if (calleeType !== "function")
+++            throw new Error(`cannot call type '${calleeType}'`);
+++        return "int";
+++    }
+++
+++    private checkAccessor(node: ast.Accessor): ValueType {
+++        if (!this.symbolTable.nameDefined(node.name))
+++            throw new Error(`undefined symbol '${node.name}'`);
+++        const symbol = this.symbolTable.getName(node.name);
+++        return symbol.type;
+++    }
+++}
+++
+++const force = <T extends U, U>(v: U) => v as unknown as T;
++diff --git a/grammar.ne b/grammar.ne
++index 0fdf31c..b0df1d5 100644
++--- a/grammar.ne
+++++ b/grammar.ne
++@@ -2,13 +2,7 @@
++ 
++ @{%
++ import moo from "https://deno.land/x/moo@0.5.1.1/index.ts";
++-import {
++-    Expression,
++-    OperationType,
++-    BinaryOperation,
++-    String,
++-    Int,
++-} from './ast.ts'
+++import * as ast from './ast.ts'
++ const lexer = moo.compile({
++     nl:         {match: /[\n;]+/, lineBreaks: true},
++     ws:         /[ \t]+/,
++@@ -20,7 +14,7 @@ const lexer = moo.compile({
++     char:       {match: /'(?:[^'\\]|\\[\s\S])'/, value: s => s.slice(1, -1), lineBreaks: true},
++     string:     {match: /"(?:[^"\\]|\\[\s\S])*"/, value: s => s.slice(1, -1), lineBreaks: true},
++     name:       {match: /[a-zA-Z0-9_]+/, type: moo.keywords({
++-        keyword: ['let', 'mut', 'if', 'else']
+++        keyword: ['const', 'let', 'if', 'else']
++     })},
++     dot:        '.',
++ 
++@@ -74,30 +68,100 @@ const lexer = moo.compile({
++ 
++ 
++ statements  ->  (_ statement (_nl_ statement):*):? _
++-    {% v => v[0] ? [v[0][1], ...v[0][2].map((v: string) => v[1])] : [] %}
++-
++-statement   ->  expression  {% id %}
++-
++-expression  ->  add_sub     {% id %}
++-
++-add_sub     ->  add_sub _ "+" _ mul_div_mod
++-                    {% v => new BinaryOperation(OperationType.Add, v[0], v[4]) %}
++-            |   add_sub _ "-" _ mul_div_mod
++-                    {% v => new BinaryOperation(OperationType.Subtract, v[0], v[4]) %}
++-            |   mul_div_mod
++-
++-mul_div_mod ->  mul_div_mod _ "*" _ value
++-                    {% v => new BinaryOperation(OperationType.Multiply, v[0], v[4]) %}
++-            |   mul_div_mod _ "/" _ value
++-                    {% v => new BinaryOperation(OperationType.Divide, v[0], v[4]) %}
++-            |   mul_div_mod _ "%" _ value
++-                    {% v => new BinaryOperation(OperationType.Modulus, v[0], v[4]) %}
++-            |   value
+++    {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[1])] : [] %}
+++
+++statement   ->  block               {% id %}
+++            |   const_declaration   {% id %}
+++            |   let_declaration     {% id %}
+++            |   if                  {% id %}
+++            |   if_else             {% id %}
+++            |   while               {% id %}
+++            |   expression          {% id %}
+++
+++block       ->  "{" statements "}"
+++                    {% v => new ast.Block(v[1]) %}
+++
+++const_declaration   ->  "const" __ argument _ "=" _ expression
+++                            {% v => new ast.ConstDeclaration(v[2], v[6]) %}
+++
+++let_declaration     ->  "let" __ argument _ "=" _ expression
+++                            {% v => new ast.LetDeclaration(v[2], v[6]) %}
+++
+++if          ->  "if" _ "(" _ expression _ ")" _ statement
+++                    {% v => new ast.If(v[4], v[8]) %}
+++
+++if_else     ->  "if" _ "(" _ expression _ ")" _ statement _ "else" _ statement
+++                    {% v => new ast.IfElse(v[4], v[8], v[12]) %}
+++
+++while       ->  "while" _ "(" _ expression _ ")" _ statement
+++                    {% v => new ast.While(v[4], v[8]) %}
+++
+++expressions ->  (_ expression (_ "," _ expression):*):? _
+++                    {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
+++
+++type        ->  "int"
+++                        {% v => new ast.IntType() %}
+++            |   "string"
+++                        {% v => new ast.StringType() %}
+++            |   "function"
+++                        {% v => new ast.FunctionType() %}
+++
+++expression  ->  function        {% id %}
+++            |   precedence_1    {% id %}
+++
+++function    ->  "(" arguments ")" _ block
+++                    {% v => new ast.Function(v[1], v[4]) %}
+++            |   "(" arguments ")" _ "=>" _ expression
+++                    {% v => new ast.Function(v[1], v[6]) %}
+++
+++arguments   ->  (_ argument (_ "," _ argument):*):? _
+++                    {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
+++
+++argument    ->  %name _ ":" _ type
+++                    {% v => new ast.Argument(v[0].value, v[4]) %}
+++
+++precedence_1    ->  precedence_2    {% id %}
+++precedence_2    ->  precedence_3    {% id %}
+++precedence_3    ->  precedence_4    {% id %}
+++precedence_4    ->  precedence_5    {% id %}
+++precedence_5    ->  precedence_6    {% id %}
+++precedence_6    ->  precedence_8    {% id %}
+++precedence_8    ->  precedence_9    {% id %}
+++precedence_9    ->  precedence_10   {% id %}
+++precedence_10   ->  precedence_11   {% id %}
+++precedence_11   ->  precedence_12   {% id %}
+++
+++precedence_12   ->  precedence_12 _ "+" _ precedence_13
+++                        {% v => new ast.BinaryOperation(ast.OperationType.Add, v[0], v[4]) %}
+++                |   precedence_12 _ "-" _ precedence_13
+++                        {% v => new ast.BinaryOperation(ast.OperationType.Subtract, v[0], v[4]) %}
+++                |   precedence_13   {% id %}
+++
+++precedence_13   ->  precedence_13 _ "*" _ precedence_14
+++                        {% v => new ast.BinaryOperation(ast.OperationType.Multiply, v[0], v[4]) %}
+++                |   precedence_13 _ "/" _ precedence_14
+++                        {% v => new ast.BinaryOperation(ast.OperationType.Divide, v[0], v[4]) %}
+++                |   precedence_13 _ "%" _ precedence_14
+++                        {% v => new ast.BinaryOperation(ast.OperationType.Modulus, v[0], v[4]) %}
+++                |   precedence_14   {% id %}
+++
+++precedence_14   ->  precedence_15   {% id %}
+++precedence_15   ->  precedence_16   {% id %}
+++precedence_16   ->  precedence_17   {% id %}
+++precedence_17   ->  precedence_18   {% id %}
+++
+++precedence_18   ->  precedence_18 _ "(" expressions ")"
+++                        {% v => new ast.Call(v[0], v[3]) %}
+++                |   precedence_19   {% id %}
+++
+++precedence_19   ->  value           {% id %}
++ 
++ value       ->  %int
++-                    {% v => new Int(v[0].value) %}
+++                    {% v => new ast.Int(v[0].value) %}
++             |   %string
++-                    {% v => new String(v[0].value) %}
+++                    {% v => new ast.String(v[0].value) %}
+++            |   %name
+++                    {% v => new ast.Accessor(v[0].value) %}
++             |   "(" _ expression _ ")"
++                     {% v => v %} 
++ 
++diff --git a/main.ts b/main.ts
++index 1d118a1..80b09bd 100644
++--- a/main.ts
+++++ b/main.ts
++@@ -2,17 +2,18 @@ import {
++     Grammar,
++     Parser,
++ } from "https://deno.land/x/nearley@2.19.7-deno/mod.ts";
+++import { compileToC } from "./compile_to_c.ts";
++ import compiledGrammar from "./grammar.out.ts";
++ 
++-if (Deno.args.length < 1) throw new Error("not enough args");
++-
++ const parse = (text: string) => {
++     const parser = new Parser(Grammar.fromCompiled(compiledGrammar));
++     parser.feed(text);
++     return parser.results[0];
++ };
++ 
+++if (Deno.args.length < 1) throw new Error("not enough args");
++ const text = await Deno.readTextFile(Deno.args[0]);
++ const res = parse(text);
++ 
++ console.log(JSON.stringify(res, null, "│   "));
+++console.log(compileToC(res));
++diff --git a/test.splang b/test.splang
++index 8302cda..24467b5 100644
++--- a/test.splang
+++++ b/test.splang
++@@ -1 +1,6 @@
++-1 + 2 * 3
++\ No newline at end of file
+++
+++const test: function = (hello: int) {
+++    hello + 1
+++}
+++
+++test()
++-- 
++2.25.1
++
+diff --git a/speedrun-language/commits/0001-yes.patch b/speedrun-language/commits/0001-yes.patch
+new file mode 100644
+index 0000000..98e51e8
+--- /dev/null
++++ b/speedrun-language/commits/0001-yes.patch
+@@ -0,0 +1,27 @@
++From 275305d44b553bcdb1952c90e552758484541f34 Mon Sep 17 00:00:00 2001
++From: SimonFJ20 <simonfromjakobsen@gmail.com>
++Date: Sat, 2 Jul 2022 17:37:28 +0200
++Subject: [PATCH] yes
++
++---
++ code_generator.ts | 4 +++-
++ 1 file changed, 3 insertions(+), 1 deletion(-)
++
++diff --git a/code_generator.ts b/code_generator.ts
++index 48aa38f..dc07292 100644
++--- a/code_generator.ts
+++++ b/code_generator.ts
++@@ -75,7 +75,9 @@ const generate_expression = (self: Generator, node: ast.Expression): string => {
++ };
++ 
++ const generate_function = (self: Generator, node: ast.Function): string => {
++-    throw new Error("not implemented");
+++    // instead of checker(ast) -> ast + total perspective symbol table
+++    // do checker(ast) -> checked(ast) + node specific symbol table
+++    throw new Error("_");
++ };
++ 
++ const generate_binary_operation = (
++-- 
++2.25.1
++
+diff --git a/speedrun-language/grammar.ne b/speedrun-language/grammar.ne
+new file mode 100644
+index 0000000..8524f2e
+--- /dev/null
++++ b/speedrun-language/grammar.ne
+@@ -0,0 +1,190 @@
++@preprocessor typescript
++
++@{%
++import moo from "https://deno.land/x/moo@0.5.1.1/index.ts";
++import * as ast from './ast.ts';
++import { Some, None } from './utils.ts';
++const lexer = moo.compile({
++    nl:         {match: /[\n;]+/, lineBreaks: true},
++    ws:         /[ \t]+/,
++    comment_sl: /\/\/.*?$/,
++    comment_ml: {match: /\*[^*]*\*+(?:[^/*][^*]*\*+)*/, lineBreaks: true},
++    float:      /\-?(?:(?:0|(?:[1-9][0-9]*))\.[0-9]+)/,
++    hex:        /0x[0-9a-fA-F]+/,
++    int:        /0|(?:[1-9][0-9]*)/,
++    char:       {match: /'(?:[^'\\]|\\[\s\S])'/, value: s => s.slice(1, -1), lineBreaks: true},
++    string:     {match: /"(?:[^"\\]|\\[\s\S])*"/, value: s => s.slice(1, -1), lineBreaks: true},
++    name:       {match: /[a-zA-Z0-9_]+/, type: moo.keywords({
++        keyword: ['const', 'let', 'if', 'else']
++    })},
++    dot:        '.',
++
++    heavyarrow: '=>',
++    thinarrow:  '->',
++
++    lparen:     '(',
++    rparen:     ')',
++    lbrace:     '{',
++    rbrace:     '}',
++    lbracket:   '[',
++    rbracket:   ']',
++    comma:      ',',
++    
++    plus:       '+',
++    minus:      '-',
++    powerof:    '^^',
++    multiply:   '*',
++    divide:     '/',
++    modulus:    '%',
++
++    log_and:    '&&',
++    log_or:     '||',
++
++    bit_and:    '&',
++    bit_or:     '|',
++    bit_xor:    '^',
++    bit_not:    '~',
++    bit_rights: '>>>',
++    bit_right:  '>>',
++    bit_left:   '<<',
++
++    cmp_e:      '==',
++    cmp_ne:     '!=',
++    cmp_lte:    '<=',
++    cmp_gte:    '>=',
++    cmp_lt:     '<',
++    cmp_gt:     '>',
++
++    log_not:    '!',
++
++    infer:     ':=',
++    assign:     '=',
++
++    qmark:      '?',
++    colon:      ':',
++});
++%}
++
++@lexer lexer
++
++
++statements  ->  (_ statement (_nl_ statement):*):? _
++    {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[1])] : [] %}
++
++statement   ->  block                   {% id %}
++            |   const_declaration       {% id %}
++            |   let_declaration         {% id %}
++            |   if                      {% id %}
++            |   if_else                 {% id %}
++            |   while                   {% id %}
++            |   expression_statement    {% id %}
++
++block       ->  "{" statements "}"
++                    {% v => new ast.Block(v[1]) %}
++
++const_declaration   ->  "const" __ argument _ "=" _ expression
++                            {% v => new ast.ConstDefinition(v[2], v[6]) %}
++
++let_declaration     ->  "let" __ argument _ ("=" _ expression):?
++                            {% v => new ast.LetDeclaration(v[2], v[5] ? Some(v[5][2]) : None()) %}
++
++if          ->  "if" _ "(" _ expression _ ")" _ statement
++                    {% v => new ast.If(v[4], v[8]) %}
++
++if_else     ->  "if" _ "(" _ expression _ ")" _ statement _ "else" _ statement
++                    {% v => new ast.IfElse(v[4], v[8], v[12]) %}
++
++while       ->  "while" _ "(" _ expression _ ")" _ statement
++                    {% v => new ast.While(v[4], v[8]) %}
++
++expression_statement    ->  expression
++                                {% v => new ast.ExpressionStatement(v[0]) %}
++
++expressions ->  (_ expression (_ "," _ expression):*):? _
++                    {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
++
++type_list   ->  (_ type (_ "," _ type):*):? _
++                    {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
++
++type_specifier  ->  ":" _ type
++                        {% v => v[2] %}
++
++type        ->  function_type   {% id %}
++            |   type_literal    {% id %}
++
++function_type   ->  "(" type_list ")" _ "=>" _ type
++                        {% v => new ast.FunctionType(v[1], v[6]) %}
++
++type_literal    ->  "int"
++                            {% v => new ast.IntType() %}
++                |   "string"
++                            {% v => new ast.IntType() %}
++                |   "void"
++                            {% v => new ast.VoidType() %}
++
++expression  ->  function        {% id %}
++            |   precedence_1    {% id %}
++
++function    ->  "(" arguments ")" _ (type_specifier _):? block
++                    {% v => new ast.Function(v[1], v[4] ? Some(v[4][0]) : None(), v[5]) %}
++            |   "(" arguments ")" _ (type_specifier _):? "=>" _ expression
++                    {% v => new ast.Function(v[1], v[4] ? Some(v[4][0]) : None(), v[7]) %}
++
++arguments   ->  (_ argument (_ "," _ argument):*):? _
++                    {% v => v[0] ? [v[0][1], ...v[0][2].map((v: any) => v[3])] : [] %}
++
++argument    ->  %name _ type_specifier
++                    {% v => new ast.Argument(v[0].value, v[2]) %}
++
++precedence_1    ->  precedence_2    {% id %}
++precedence_2    ->  precedence_3    {% id %}
++precedence_3    ->  precedence_4    {% id %}
++precedence_4    ->  precedence_5    {% id %}
++precedence_5    ->  precedence_6    {% id %}
++precedence_6    ->  precedence_8    {% id %}
++precedence_8    ->  precedence_9    {% id %}
++precedence_9    ->  precedence_10   {% id %}
++precedence_10   ->  precedence_11   {% id %}
++precedence_11   ->  precedence_12   {% id %}
++
++precedence_12   ->  precedence_12 _ "+" _ precedence_13
++                        {% v => new ast.BinaryOperation(ast.OperationType.Add, v[0], v[4]) %}
++                |   precedence_12 _ "-" _ precedence_13
++                        {% v => new ast.BinaryOperation(ast.OperationType.Subtract, v[0], v[4]) %}
++                |   precedence_13   {% id %}
++
++precedence_13   ->  precedence_13 _ "*" _ precedence_14
++                        {% v => new ast.BinaryOperation(ast.OperationType.Multiply, v[0], v[4]) %}
++                |   precedence_13 _ "/" _ precedence_14
++                        {% v => new ast.BinaryOperation(ast.OperationType.Divide, v[0], v[4]) %}
++                |   precedence_13 _ "%" _ precedence_14
++                        {% v => new ast.BinaryOperation(ast.OperationType.Modulus, v[0], v[4]) %}
++                |   precedence_14   {% id %}
++
++precedence_14   ->  precedence_15   {% id %}
++precedence_15   ->  precedence_16   {% id %}
++precedence_16   ->  precedence_17   {% id %}
++precedence_17   ->  precedence_18   {% id %}
++
++precedence_18   ->  precedence_18 _ "(" expressions ")"
++                        {% v => new ast.Call(v[0], v[3]) %}
++                |   precedence_19   {% id %}
++
++precedence_19   ->  value           {% id %}
++
++value       ->  %int
++                    {% v => new ast.Int(v[0].value) %}
++            |   %string
++                    {% v => new ast.String(v[0].value) %}
++            |   %name
++                    {% v => new ast.Accessor(v[0].value) %}
++            |   "(" _ expression _ ")"
++                    {% v => v %} 
++
++_           ->  __:?
++__          ->  (%ws|%nl|%comment_sl|%comment_ml):+
++
++_nl_        ->  sl_ (%nl sl_):+
++
++sl_         ->  sl__:?
++sl__        ->  (%ws|%comment_sl|%comment_ml):+
+diff --git a/speedrun-language/main.ts b/speedrun-language/main.ts
+new file mode 100644
+index 0000000..bc54852
+--- /dev/null
++++ b/speedrun-language/main.ts
+@@ -0,0 +1,39 @@
++import {
++    Grammar,
++    Parser,
++} from "https://deno.land/x/nearley@2.19.7-deno/mod.ts";
++import { Checker } from "./checker.ts";
++import { generate } from "./code_generator.ts";
++import compiled_grammar from "./grammar.out.ts";
++
++const parse = (text: string) => {
++    const parser = new Parser(Grammar.fromCompiled(compiled_grammar));
++    parser.feed(text);
++    return parser.results[0];
++};
++
++const compileToBinary = async (target_file_name: string, c_code: string) => {
++    const temp_c_file = await Deno.makeTempFile();
++    await Deno.writeTextFile(temp_c_file, c_code);
++    const process = Deno.run({
++        cmd: ["gcc", "-xc", temp_c_file, "-o", target_file_name],
++    });
++    await process.status();
++    process.close();
++    Deno.remove(temp_c_file);
++};
++
++if (Deno.args.length < 1) throw new Error("not enough args");
++const text = await Deno.readTextFile(Deno.args[0]);
++const res = parse(text);
++
++console.log(JSON.stringify(res, null, "│   "));
++const { functions, st, errors } = new Checker().check_program(res);
++if (errors.length === 0) {
++    const c_code = generate({ st, functions }, res);
++    console.log(c_code);
++    await compileToBinary("a.out", c_code);
++} else {
++    console.log("Compilation failed:");
++    for (const v of errors) console.log(errors);
++}
+diff --git a/speedrun-language/math.splang b/speedrun-language/math.splang
+new file mode 100644
+index 0000000..a36d1d7
+--- /dev/null
++++ b/speedrun-language/math.splang
+@@ -0,0 +1,3 @@
++
++const a: int = 1 + 1
++const b: int = a + 1
+diff --git a/speedrun-language/run.sh b/speedrun-language/run.sh
+new file mode 100755
+index 0000000..9bdb953
+--- /dev/null
++++ b/speedrun-language/run.sh
+@@ -0,0 +1 @@
++nearleyc grammar.ne > grammar.out.ts && deno run --allow-read --allow-write --allow-run main.ts $1
+\ No newline at end of file
+diff --git a/speedrun-language/test.splang b/speedrun-language/test.splang
+new file mode 100644
+index 0000000..e8a450c
+--- /dev/null
++++ b/speedrun-language/test.splang
+@@ -0,0 +1,6 @@
++
++const test: (int) => void = (hello: int) {
++    hello + 1
++}
++
++test()
+diff --git a/speedrun-language/utils.ts b/speedrun-language/utils.ts
+new file mode 100644
+index 0000000..72d8733
+--- /dev/null
++++ b/speedrun-language/utils.ts
+@@ -0,0 +1,134 @@
++export class Option<T> {
++    private static None = Symbol("None");
++
++    private constructor(
++        private ok: boolean,
++        private value: T | typeof Option.None,
++    ) {}
++
++    public static some<T>(value: T): Option<T> {
++        return new Option<T>(true, value);
++    }
++
++    public static none<T>(): Option<T> {
++        return new Option<T>(false, Option.None);
++    }
++
++    public is_ok(): boolean {
++        return this.ok;
++    }
++
++    public is_err(): boolean {
++        return !this.ok;
++    }
++
++    public unwrap(): T {
++        if (this.ok) return this.value as T;
++        else throw new Error("cannot unwrap non-ok result");
++    }
++
++    public expect(msg: string): T {
++        if (this.ok) return this.value as T;
++        else throw new Error(`cannot unwrap non-ok result, expected ${msg}`);
++    }
++
++    public match<Y>(case_some: (v: T) => Y, case_none: () => Y): Y {
++        return this.ok ? case_some(this.value as T) : case_none();
++    }
++}
++
++export const Some = <T>(value: T): Option<T> => Option.some<T>(value);
++export const None = <T>(): Option<T> => Option.none<T>();
++
++export class Result<T, E> {
++    private constructor(
++        private ok: boolean,
++        private value: Option<T>,
++        private error: Option<E>,
++    ) {}
++
++    public static ok<T, E>(value: T): Result<T, E> {
++        return new Result<T, E>(true, Some(value), None());
++    }
++
++    public static error<T, E>(error: E): Result<T, E> {
++        return new Result<T, E>(false, None(), Some(error));
++    }
++
++    public is_ok(): boolean {
++        return this.ok;
++    }
++
++    public is_err(): boolean {
++        return !this.ok;
++    }
++
++    public transform<NT, NE extends E>(): Result<NT, NE> {
++        if (!this.ok) return this as unknown as Result<NT, NE>;
++        else throw new Error("cannot transform ok result");
++    }
++
++    public unwrap(): T {
++        if (this.ok) return this.value.unwrap();
++        else throw new Error("cannot unwrap non-ok result");
++    }
++
++    public unwrap_err(): E {
++        if (!this.ok) return this.error.unwrap();
++        else throw new Error("cannot unwrap error of ok result");
++    }
++
++    public expect(msg: string): T {
++        if (this.ok) return this.value.unwrap();
++        else throw new Error(`cannot unwrap non-ok result, expected ${msg}`);
++    }
++
++    public expect_err(msg: string): E {
++        if (!this.ok) return this.error.unwrap();
++        else
++            throw new Error(
++                `cannot unwrap error of ok result, expected ${msg}`,
++            );
++    }
++
++    public match<Y>(case_ok: (v: T) => Y, case_error: (e: E) => Y): Y {
++        return this.ok
++            ? case_ok(this.value.unwrap())
++            : case_error(this.error.unwrap());
++    }
++}
++
++export const Ok = <T, E>(value: T) => Result.ok<T, E>(value);
++export const Err = <T, E>(error: E) => Result.error<T, E>(error);
++
++export const force = <T extends U, U>(v: U) => v as unknown as T;
++
++export const qmark = <Y, T, E>(
++    result: Result<T, E>,
++    action: (value: T) => Y,
++) => {
++    if (result.is_err()) return result;
++    else return action(result.unwrap());
++};
++
++export const _ = Symbol("_");
++export const Or = Symbol("|");
++
++export const match = <V, T>(
++    value: V,
++    cases: [v: V | typeof _, action: (() => T) | typeof Or][],
++): T => {
++    for (const [v, action] of cases)
++        if ((v === _ || v === value) && action !== Or) return action();
++    throw new Error("unexhaustive match");
++};
++
++export const id_generator = () =>
++    (
++        (ids) => () =>
++            ids.next().value!
++    )(
++        (function* () {
++            for (let i = 0; true; i++) yield i;
++        })(),
++    );
+-- 
+2.25.1
+

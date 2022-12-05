@@ -1,0 +1,29 @@
+From c367a8cc2fe89cecd533703622a9810c28ee416c Mon Sep 17 00:00:00 2001
+From: SimonFJ20 <simonfromjakobsen@gmail.com>
+Date: Fri, 4 Nov 2022 18:38:36 +0100
+Subject: [PATCH] renamed because name collision and mypy
+
+---
+ danskc/danskc.py                 | 2 +-
+ danskc/{parser.py => parser_.py} | 0
+ 2 files changed, 1 insertion(+), 1 deletion(-)
+ rename danskc/{parser.py => parser_.py} (100%)
+
+diff --git a/danskc/danskc.py b/danskc/danskc.py
+index f9f09a5..26c380b 100644
+--- a/danskc/danskc.py
++++ b/danskc/danskc.py
+@@ -1,5 +1,5 @@
+ from __future__ import annotations
+-from parser import Parser, statements_to_string
++from parser_ import Parser, statements_to_string
+ from tokenizer import tokenize
+ 
+ 
+diff --git a/danskc/parser.py b/danskc/parser_.py
+similarity index 100%
+rename from danskc/parser.py
+rename to danskc/parser_.py
+-- 
+2.25.1
+

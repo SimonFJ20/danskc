@@ -1,0 +1,27 @@
+From 67fc9cc2693a6f41ce89ac7e111b710bc164d5c0 Mon Sep 17 00:00:00 2001
+From: Simon From Jakobsen <simonfromjakobsen@gmail.com>
+Date: Thu, 3 Nov 2022 09:50:05 +0100
+Subject: [PATCH] added debug flag
+
+---
+ danskc/virtual-computer/assembler.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/danskc/virtual-computer/assembler.py b/danskc/virtual-computer/assembler.py
+index 432e34d..6bb096b 100644
+--- a/danskc/virtual-computer/assembler.py
++++ b/danskc/virtual-computer/assembler.py
+@@ -15,8 +15,8 @@ if __name__ == "__main__":
+     from argparse import ArgumentParser
+     argparser = ArgumentParser()
+     argparser.add_argument("file")
++    argparser.add_argument("--debug", action="store_true")
+     args = argparser.parse_args()
+     with open(args.file) as file:
+-        # print(assemble(file.read()), end="", flush=True)
+-        print(assemble(file.read()))
++        print(assemble(file.read(), args.debug))
+     
+-- 
+2.25.1
+

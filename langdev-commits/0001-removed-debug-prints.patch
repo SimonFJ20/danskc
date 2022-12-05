@@ -1,0 +1,31 @@
+From bc6800423b78872fa0f70feb9ca4f11f4eeae9a0 Mon Sep 17 00:00:00 2001
+From: Simon From Jakobsen <simonfromjakobsen@gmail.com>
+Date: Tue, 18 Oct 2022 09:34:55 +0200
+Subject: [PATCH] removed debug prints
+
+---
+ danskc/danskc.py | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/danskc/danskc.py b/danskc/danskc.py
+index 4839206..8f73cc9 100644
+--- a/danskc/danskc.py
++++ b/danskc/danskc.py
+@@ -465,14 +465,12 @@ class Parser:
+     def parse_binary(self) -> Expr:
+         expr_stack: List[Expr] = []
+         op_stack: List[BinaryOperations] = []
+-        print("sussing in 'parse_unary' 1")
+         expr_stack.append(self.parse_unary())
+         last_prec = 5
+         while not self.done():
+             op = self.maybe_parse_binary_op()
+             if not op: break
+             prec = self.binary_op_precedence(op)
+-            print("sussing in 'parse_unary' 2")
+             right = self.parse_unary()
+             while prec <= last_prec and len(expr_stack) > 1:
+                 right_ = expr_stack.pop()
+-- 
+2.25.1
+

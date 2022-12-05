@@ -1,0 +1,17 @@
+From 10d0817a6d274a07b0d0cc836427c577160abbaf Mon Sep 17 00:00:00 2001
+From: SimonFJ20 <simonfromjakobsen@gmail.com>
+Date: Fri, 4 Nov 2022 17:14:55 +0100
+Subject: [PATCH] move inside package folder
+
+---
+ danskc/virtual-computer/{assembler.py => assembler/__main__.py} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ rename danskc/virtual-computer/{assembler.py => assembler/__main__.py} (100%)
+
+diff --git a/danskc/virtual-computer/assembler.py b/danskc/virtual-computer/assembler/__main__.py
+similarity index 100%
+rename from danskc/virtual-computer/assembler.py
+rename to danskc/virtual-computer/assembler/__main__.py
+-- 
+2.25.1
+

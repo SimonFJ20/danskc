@@ -1,0 +1,32 @@
+From c7a2a5398510e53382a84b14cf9537136135cee9 Mon Sep 17 00:00:00 2001
+From: Simon From Jakobsen <simonfromjakobsen@gmail.com>
+Date: Thu, 3 Nov 2022 10:29:55 +0100
+Subject: [PATCH] remove not
+
+---
+ danskc/virtual-computer/assembler/examples/clear.asm | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/danskc/virtual-computer/assembler/examples/clear.asm b/danskc/virtual-computer/assembler/examples/clear.asm
+index c00d8d7..8467041 100644
+--- a/danskc/virtual-computer/assembler/examples/clear.asm
++++ b/danskc/virtual-computer/assembler/examples/clear.asm
+@@ -95,12 +95,11 @@ clear_screen_optimised:
+     mov r2, 0
+     ; let m = vram_size
+     mov r3, vram_size
++    sub r3, 1
+ 
+ .loop_continue_2:
+-    ; i < m
+-    mov ra, r2 ; i
+-    lt ra, r3
+-    xor ra, [iv + 1]
++    mov ra, r3 ; m
++    lt ra, r2 ; m < i
+     jnz .loop_break_2, ra
+ 
+     ; vram_offset[i] = ' '
+-- 
+2.25.1
+

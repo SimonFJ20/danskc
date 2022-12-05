@@ -1,0 +1,24 @@
+From 9357a8af4fc8f1191a0965598a8fd93477d043e5 Mon Sep 17 00:00:00 2001
+From: Simon From Jakobsen <simonfromjakobsen@gmail.com>
+Date: Tue, 18 Oct 2022 09:36:29 +0200
+Subject: [PATCH] added resources to readme
+
+---
+ danskc/README.md | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/danskc/README.md b/danskc/README.md
+index 84ee61f..8c06f2c 100644
+--- a/danskc/README.md
++++ b/danskc/README.md
+@@ -1,2 +1,7 @@
+ 
+ # Programmeringssprog på dansk
++
++## Resources
++
++- [How Do You Make An Assembler? - StackOverflow](https://stackoverflow.com/questions/2478142/how-do-you-make-an-assembler)
++- [Assemblers And Loaders - By David Salomon](http://www.davidsalomon.name/assem.advertis/asl.pdf)
+-- 
+2.25.1
+

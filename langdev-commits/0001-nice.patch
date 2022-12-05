@@ -1,0 +1,89 @@
+From cf489a1f0b6219d0d3baf64fb8302968c4a7b52c Mon Sep 17 00:00:00 2001
+From: SimonFJ20 <simonfromjakobsen@gmail.com>
+Date: Fri, 4 Nov 2022 18:54:09 +0100
+Subject: [PATCH] nice
+
+---
+ danskc/c_generator.py | 70 +++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 70 insertions(+)
+ create mode 100644 danskc/c_generator.py
+
+diff --git a/danskc/c_generator.py b/danskc/c_generator.py
+new file mode 100644
+index 0000000..c078e84
+--- /dev/null
++++ b/danskc/c_generator.py
+@@ -0,0 +1,70 @@
++from __future__ import annotations
++from collections import namedtuple
++from typing import Dict, List, Tuple, cast
++from parser_ import (
++    StatementType,
++    Statement,
++    ExprStatement,
++    Let,
++    If,
++    While,
++    Return,
++    ExprType,
++    Expr,
++    Func,
++    Id,
++    Int,
++    Float,
++    Char,
++    String,
++    Bool,
++    Array,
++    Object,
++    Accessing,
++    Indexing,
++    Call,
++    UnaryOperations,
++    Unary,
++    BinaryOperations,
++    Binary,
++    AssignOperations,
++    Assign,
++)
++
++
++class GlobalTable:
++    def __init__(self, decl_indices: Dict[str, int]) -> None:
++        self.decl_indices = decl_indices
++
++
++class GlobalTableBuilder:
++    def __init__(self) -> None:
++        self.indices: Dict[str, int] = {}
++
++    def declare_let_at(self, i: int, node: Let) -> None:
++        if node.subject in self.indices:
++            raise Exception(f'multiple definitions of symbol "{node.subject}"')
++        self.indices[node.subject] = i
++
++    def declare_func_at(self, i: int, node: Func) -> None:
++        if node.subject in self.indices:
++            raise Exception(f'multiple definitions of symbol "{node.subject}"')
++        self.indices[node.subject] = i
++
++    def build(self) -> GlobalTable:
++        return GlobalTable(self.indices)
++
++
++def build_global_table(ast: List[Statement]) -> GlobalTable:
++    table = GlobalTableBuilder()
++    for i, statement in enumerate(ast):
++        if statement.statement_type() == StatementType.Func:
++            table.declare_func_at(i, cast(Func, statement))
++        elif statement.statement_type() == StatementType.Let:
++            table.declare_let_at(i, cast(Let, statement))
++    return table.build()
++
++
++def generate_program(ast: List[Statement]) -> str:
++    global_table = build_global_table(ast)
++    return "int main(){((int*)0)=0;}"
+-- 
+2.25.1
+

@@ -1,0 +1,672 @@
+From 23729abb5887d16bc49eb72d130159d432e54c0c Mon Sep 17 00:00:00 2001
+From: SimonFJ20 <simonfromjakobsen@gmail.com>
+Date: Sun, 6 Nov 2022 22:29:36 +0100
+Subject: [PATCH] type type checking needed
+
+---
+ danskc/checker.py   | 419 ++++++++++++++++++++++++++++++++++++++++++++
+ danskc/danskc.py    |   4 +-
+ danskc/parser_.py   |  85 +++++++--
+ danskc/test.dk      |   9 +-
+ danskc/tokenizer.py |   4 +
+ 5 files changed, 505 insertions(+), 16 deletions(-)
+ create mode 100644 danskc/checker.py
+
+diff --git a/danskc/checker.py b/danskc/checker.py
+new file mode 100644
+index 0000000..dcebc53
+--- /dev/null
++++ b/danskc/checker.py
+@@ -0,0 +1,419 @@
++from __future__ import annotations
++from enum import Enum, auto
++from typing import Dict, List, Tuple, cast
++from parser_ import (
++    ParsedParam,
++    ParsedStatementTypes,
++    ParsedStatement,
++    ParsedExprStatement,
++    ParsedLet,
++    ParsedIf,
++    ParsedType,
++    ParsedWhile,
++    ParsedReturn,
++    ParsedExprTypes,
++    ParsedExpr,
++    ParsedFunc,
++    ParsedId,
++    ParsedInt,
++    ParsedFloat,
++    ParsedChar,
++    ParsedString,
++    ParsedBool,
++    ParsedArray,
++    ParsedObject,
++    ParsedAccessing,
++    ParsedIndexing,
++    ParsedCall,
++    ParsedUnaryOperations,
++    ParsedUnary,
++    ParsedBinaryOperations,
++    ParsedBinary,
++    ParsedAssignOperations,
++    ParsedAssign,
++)
++
++
++class CheckedStatementTypes(Enum):
++    Expr = auto()
++    Let = auto()
++    If = auto()
++    While = auto()
++    Break = auto()
++    Func = auto()
++    Return = auto()
++
++
++class CheckedStatement:
++    def __init__(self) -> None:
++        pass
++
++    def statement_type(self) -> CheckedStatementTypes:
++        raise NotImplementedError()
++
++    def __str__(self) -> str:
++        raise NotImplementedError()
++
++
++class CheckedLet(CheckedStatement):
++    def __init__(
++        self, subject: str, value_type: CheckedType, value: CheckedExpr
++    ) -> None:
++        super().__init__()
++        self.subject = subject
++        self.value_type = value_type
++        self.value = value
++
++    def statement_type(self) -> CheckedStatementTypes:
++        return CheckedStatementTypes.Let
++
++
++class CheckedFunc(CheckedStatement):
++    def __init__(
++        self,
++        subject: str,
++        params: List[CheckedParam],
++        return_type: CheckedType,
++        body: List[CheckedStatement],
++    ) -> None:
++        super().__init__()
++        self.subject = subject
++        self.params = params
++        self.return_type = return_type
++        self.body = body
++
++    def statement_type(self) -> CheckedStatementTypes:
++        return CheckedStatementTypes.While
++
++
++class CheckedParam:
++    def __init__(self, subject: str, value_type: CheckedType) -> None:
++        self.subject = subject
++        self.value_type = value_type
++
++
++class CheckedTypeTypes(Enum):
++    Int = auto()
++    Func = auto()
++
++
++class CheckedType:
++    def __init__(self) -> None:
++        pass
++
++    def type_type(self) -> CheckedTypeTypes:
++        raise NotImplementedError()
++
++
++class CheckedIntType(CheckedType):
++    def __init__(self) -> None:
++        super().__init__()
++
++    def type_type(self) -> CheckedTypeTypes:
++        return CheckedTypeTypes.Int
++
++
++class CheckedFuncType(CheckedType):
++    def __init__(self, params: List[CheckedParam], return_type: CheckedType) -> None:
++        super().__init__()
++        self.params = params
++        self.return_type = return_type
++
++    def type_type(self) -> CheckedTypeTypes:
++        return CheckedTypeTypes.Func
++
++
++def check_program(ast: List[ParsedStatement]) -> List[CheckedStatement]:
++    pass
++
++
++class CheckedExprTypes(Enum):
++    Id = auto()
++    Int = auto()
++    Float = auto()
++    Char = auto()
++    String = auto()
++    Bool = auto()
++    Array = auto()
++    Object = auto()
++    Accessing = auto()
++    Indexing = auto()
++    Call = auto()
++    Unary = auto()
++    Binary = auto()
++    Assign = auto()
++
++
++class CheckedExpr:
++    def __init__(self) -> None:
++        pass
++
++    def expr_type(self) -> CheckedExprTypes:
++        raise NotImplementedError()
++
++
++class CheckedId(CheckedExpr):
++    def __init__(self, value: str) -> None:
++        super().__init__()
++        self.value = value
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Id
++
++
++class CheckedInt(CheckedExpr):
++    def __init__(self, value: int) -> None:
++        super().__init__()
++        self.value = value
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Int
++
++
++class CheckedFloat(CheckedExpr):
++    def __init__(self, value: float) -> None:
++        super().__init__()
++        self.value = value
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Float
++
++
++class CheckedChar(CheckedExpr):
++    def __init__(self, value: str) -> None:
++        super().__init__()
++        self.value = value
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Char
++
++
++class CheckedString(CheckedExpr):
++    def __init__(self, value: str) -> None:
++        super().__init__()
++        self.value = value
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.String
++
++
++class CheckedBool(CheckedExpr):
++    def __init__(self, value: bool) -> None:
++        super().__init__()
++        self.value = value
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Bool
++
++
++class CheckedArray(CheckedExpr):
++    def __init__(self, values: List[CheckedExpr]) -> None:
++        super().__init__()
++        self.values = values
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Array
++
++
++class CheckedObject(CheckedExpr):
++    def __init__(self, values: List[Tuple[str, CheckedExpr]]) -> None:
++        super().__init__()
++        self.values = values
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Object
++
++
++class CheckedAccessing(CheckedExpr):
++    def __init__(self, subject: CheckedExpr, value: str) -> None:
++        super().__init__()
++        self.subject = subject
++        self.value = value
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Accessing
++
++
++class CheckedIndexing(CheckedExpr):
++    def __init__(self, subject: CheckedExpr, value: CheckedExpr) -> None:
++        super().__init__()
++        self.subject = subject
++        self.value = value
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Indexing
++
++
++class CheckedCall(CheckedExpr):
++    def __init__(self, subject: CheckedExpr, args: List[CheckedExpr]) -> None:
++        super().__init__()
++        self.subject = subject
++        self.args = args
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Call
++
++
++class CheckedUnaryOperations(Enum):
++    Not = auto()
++
++
++class CheckedUnary(CheckedExpr):
++    def __init__(self, subject: CheckedExpr, operation: CheckedUnaryOperations) -> None:
++        super().__init__()
++        self.subject = subject
++        self.operation = operation
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Unary
++
++
++class CheckedBinaryOperations(Enum):
++    Add = auto()
++    Subtract = auto()
++    Multiply = auto()
++    EQ = auto()
++    NE = auto()
++    LT = auto()
++    LTE = auto()
++    GT = auto()
++    GTE = auto()
++
++
++class CheckedBinary(CheckedExpr):
++    def __init__(
++        self, left: CheckedExpr, right: CheckedExpr, operation: CheckedBinaryOperations
++    ) -> None:
++        super().__init__()
++        self.left = left
++        self.right = right
++        self.operation = operation
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Binary
++
++
++class CheckedAssignOperations(Enum):
++    Assign = auto()
++    Increment = auto()
++    Decrement = auto()
++
++
++class CheckedAssign(CheckedExpr):
++    def __init__(
++        self,
++        subject: CheckedExpr,
++        value: CheckedExpr,
++        operation: CheckedAssignOperations,
++    ) -> None:
++        super().__init__()
++        self.subject = subject
++        self.value = value
++        self.operation = operation
++
++    def expr_type(self) -> CheckedExprTypes:
++        return CheckedExprTypes.Assign
++
++
++class GlobalSymbol:
++    def __init__(self) -> None:
++        pass
++
++
++class GlobalTable:
++    def __init__(
++        self, top_level: List[ParsedStatement], decl_locations: Dict[str, int]
++    ) -> None:
++        self.top_level = top_level
++        self.decl_locations = decl_locations
++        self.table: Dict[str, CheckedType] = {}
++
++    def get(self, subject: str) -> CheckedType:
++        if subject in self.table:
++            return self.table[subject]
++        else:
++            if subject in self.decl_locations:
++                raise NotImplementedError()
++            else:
++                raise Exception(f'use of undefined/indeclared symbol "{subject}"')
++
++    def define(self, subject: str, value_type: CheckedType) -> None:
++        if subject in self.table:
++            raise Exception(
++                f'shouldn\'t be possible, but multiple declarations of symbol "{subject}"'
++            )
++        else:
++            self.table[subject] = value_type
++
++
++class GlobalTableBuilder:
++    def __init__(self) -> None:
++        self.table: Dict[str, int] = {}
++
++    def declare(self, subject: str, index: int) -> None:
++        if subject in self.table:
++            raise Exception(f'multiple declarations of symbol "{subject}"')
++        self.table[subject] = index
++
++    def build(self, top_level: List[ParsedStatement]) -> GlobalTable:
++        return GlobalTable(top_level, self.table)
++
++
++def check_top_level_statements(
++    top_level: List[ParsedStatement],
++) -> List[CheckedStatement]:
++    global_table = build_global_table(top_level)
++    checked_statements: List[CheckedStatement] = []
++    for statement in top_level:
++        if statement.statement_type() == ParsedStatementTypes.Let:
++            let = cast(ParsedLet, statement)
++            checked_statements.append(check_top_level_let(let, global_table))
++        elif statement.statement_type() == ParsedStatementTypes.Func:
++            func = cast(ParsedFunc, statement)
++            checked_statements.append(check_top_level_func(func, global_table))
++        else:
++            raise Exception(f"statement {statement} not allowed in top level")
++    return checked_statements
++
++
++def build_global_table(top_level: List[ParsedStatement]) -> GlobalTable:
++    global_table = GlobalTableBuilder()
++    for i, statement in enumerate(top_level):
++        if statement.statement_type() == ParsedStatementTypes.Let:
++            let = cast(ParsedLet, statement)
++            global_table.declare(let.subject, i)
++        elif statement.statement_type() == ParsedStatementTypes.Func:
++            func = cast(ParsedFunc, statement)
++            global_table.declare(func.subject, i)
++    return global_table.build(top_level)
++
++
++def check_top_level_let(node: ParsedLet, global_table: GlobalTable) -> CheckedLet:
++    value_type = check_type(node.value_type)
++    global_table.define(node.subject, value_type)
++    value = check_top_level_expr(node.value)
++    return CheckedLet(node.subject, value_type, value)
++
++
++def check_top_level_expr(node: ParsedExpr) -> CheckedExpr:
++    if node.expr_type() == CheckedExprTypes.Int:
++        int_node = cast(CheckedInt, node)
++        return CheckedInt(int_node.value)
++    else:
++        raise NotImplementedError()
++
++
++def check_top_level_func(node: ParsedFunc, global_table: GlobalTable) -> CheckedFunc:
++    params = [CheckedParam(p.subject, check_type(p.value_type)) for p in node.params]
++    return_type = check_type(node.return_type)
++    global_table.define(node.subject, CheckedFuncType(params, return_type))
++    body = check_statements(node.body)
++    return CheckedFunc(node.subject, params, return_type, body)
++
++
++def check_statements(node: List[ParsedStatement]) -> List[CheckedStatement]:
++    pass
++
++
++def check_type(type: ParsedType) -> CheckedType:
++    pass
+diff --git a/danskc/danskc.py b/danskc/danskc.py
+index 26c380b..e57256b 100644
+--- a/danskc/danskc.py
++++ b/danskc/danskc.py
+@@ -1,5 +1,5 @@
+ from __future__ import annotations
+-from parser_ import Parser, statements_to_string
++from parser_ import Parser, parsed_statements_to_string
+ from tokenizer import tokenize
+ 
+ 
+@@ -13,7 +13,7 @@ def main() -> None:
+             print(token)
+         ast = parser.parse_statements()
+         print("=== AST ===")
+-        print(statements_to_string(ast))
++        print(parsed_statements_to_string(ast))
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/danskc/parser_.py b/danskc/parser_.py
+index 505e0b9..dd1e4c3 100644
+--- a/danskc/parser_.py
++++ b/danskc/parser_.py
+@@ -25,7 +25,7 @@ class ParsedStatement:
+         raise NotImplementedError()
+ 
+ 
+-def statements_to_string(statements: List[ParsedStatement]) -> str:
++def parsed_statements_to_string(statements: List[ParsedStatement]) -> str:
+     statements_ = "\n".join(str(statement) for statement in statements)
+     return f"[ {statements_} ]"
+ 
+@@ -43,9 +43,10 @@ class ParsedExprStatement(ParsedStatement):
+ 
+ 
+ class ParsedLet(ParsedStatement):
+-    def __init__(self, subject: str, value: ParsedExpr) -> None:
++    def __init__(self, subject: str, value_type: ParsedType, value: ParsedExpr) -> None:
+         super().__init__()
+         self.subject = subject
++        self.value_type = value_type
+         self.value = value
+ 
+     def statement_type(self) -> ParsedStatementTypes:
+@@ -103,20 +104,30 @@ class ParsedBreak(ParsedStatement):
+ 
+ class ParsedFunc(ParsedStatement):
+     def __init__(
+-        self, subject: str, args: List[str], body: List[ParsedStatement]
++        self,
++        subject: str,
++        params: List[ParsedParam],
++        return_type: ParsedType,
++        body: List[ParsedStatement],
+     ) -> None:
+         super().__init__()
+         self.subject = subject
+-        self.args = args
++        self.params = params
++        self.return_type = return_type
+         self.body = body
+ 
+     def statement_type(self) -> ParsedStatementTypes:
+         return ParsedStatementTypes.While
+ 
+     def __str__(self) -> str:
+-        args = ", ".join(f'"{arg}"' for arg in self.args)
++        params = ", ".join(str(param) for param in self.params)
+         body = ", ".join(str(statement) for statement in self.body)
+-        return f"Func {{ subject: {self.subject}, args: [ {args} ], body: [ {body} ] }}"
++        return f"""Func {{
++            subject: {self.subject},
++            params: [ {params} ],
++            return_type: {self.return_type},
++            body: [ {body} ]
++        }}"""
+ 
+ 
+ class ParsedReturn(ParsedStatement):
+@@ -131,6 +142,42 @@ class ParsedReturn(ParsedStatement):
+         return f"Return {{ value: {self.value} }}"
+ 
+ 
++class ParsedTypeTypes(Enum):
++    Id = auto()
++
++
++class ParsedParam:
++    def __init__(self, subject: str, value_type: ParsedType) -> None:
++        self.subject = subject
++        self.value_type = value_type
++
++    def __str__(self) -> str:
++        return f"Param {{ subject: {self.subject}, value_type: {self.value_type} }}"
++
++
++class ParsedType:
++    def __init__(self) -> None:
++        pass
++
++    def type_type(self) -> ParsedTypeTypes:
++        raise NotImplementedError()
++
++    def __str__(self) -> str:
++        raise NotImplementedError()
++
++
++class ParsedIdType(ParsedType):
++    def __init__(self, value: str) -> None:
++        super().__init__()
++        self.value = value
++
++    def type_type(self) -> ParsedTypeTypes:
++        return ParsedTypeTypes.Id
++
++    def __str__(self) -> str:
++        return f'IdType {{ value: "{self.value}" }}'
++
++
+ class ParsedExprTypes(Enum):
+     Id = auto()
+     Int = auto()
+@@ -429,21 +476,28 @@ class Parser:
+         self.step()
+         self.expect(TokenTypes.LParen)
+         self.step()
+-        args: List[str] = []
++        params: List[ParsedParam] = []
+         while not self.done() and self.current_type() != TokenTypes.RParen:
+             self.expect(TokenTypes.Id)
+-            args.append(self.current().value)
++            value = self.current().value
++            self.step()
++            self.expect(TokenTypes.Colon)
+             self.step()
++            value_type = self.parse_type()
++            params.append(ParsedParam(value, value_type))
+             if self.current_type() == TokenTypes.Comma:
+                 self.step()
+             else:
+                 break
+         self.expect(TokenTypes.RParen)
+         self.step()
++        self.expect(TokenTypes.ThinArrow)
++        self.step()
++        return_type = self.parse_type()
+         body = self.parse_statements()
+         self.expect(TokenTypes.KwSlut)
+         self.step()
+-        return ParsedFunc(subject, args, body)
++        return ParsedFunc(subject, params, return_type, body)
+ 
+     def parse_return(self) -> ParsedReturn:
+         self.step()
+@@ -502,14 +556,25 @@ class Parser:
+         self.expect(TokenTypes.Id)
+         subject = self.current().value
+         self.step()
++        self.expect(TokenTypes.Colon)
++        self.step()
++        value_type = self.parse_type()
+         self.expect(TokenTypes.Assign)
+         self.step()
+         value = self.parse_expr()
+-        return ParsedLet(subject, value)
++        return ParsedLet(subject, value_type, value)
+ 
+     def parse_expr_statement(self) -> ParsedExprStatement:
+         return ParsedExprStatement(self.parse_expr())
+ 
++    def parse_type(self) -> ParsedType:
++        if self.current_type() == TokenTypes.Id:
++            value = self.current().value
++            self.step()
++            return ParsedIdType(value)
++        else:
++            raise Exception(f"expected type, got {self.current()}")
++
+     def parse_expr(self) -> ParsedExpr:
+         if self.current_type() == TokenTypes.LBrace:
+             return self.parse_object()
+diff --git a/danskc/test.dk b/danskc/test.dk
+index 35c6b1a..0255958 100644
+--- a/danskc/test.dk
++++ b/danskc/test.dk
+@@ -1,16 +1,17 @@
+ KOMMENTER
+-funktion hello(a, b)
++funktion hello(a: heltal, b: heltal) -> heltal
+     tilbagesend a + b
+ slut
++FÆRDIG
+ 
+ hvis a == 4 så
+     print("hello world\n")
+ ellers
+-    let b = "bruh moment"
+-    let c = 4
++    lad b: text = "bruh moment"
++    lad c: heltal = 4
+     hello(3, c)
+ slut
+-FÆRDIG
++
+ 
+ mens a <= 4 så
+     tilbagesend
+diff --git a/danskc/tokenizer.py b/danskc/tokenizer.py
+index e0971f4..9dbcd8b 100644
+--- a/danskc/tokenizer.py
++++ b/danskc/tokenizer.py
+@@ -30,6 +30,7 @@ class TokenTypes(Enum):
+     Dot = auto()
+     Comma = auto()
+     Colon = auto()
++    ThinArrow = auto()
+     Semicolon = auto()
+     Plus = auto()
+     Minus = auto()
+@@ -227,6 +228,9 @@ def tokenize(text: str) -> List[Token]:
+         elif chars_match(text[i:], ":"):
+             tokens.append(Token(TokenTypes.Colon, text[i], line))
+             i += 1
++        elif chars_match(text[i:], "->"):
++            tokens.append(Token(TokenTypes.ThinArrow, text[i : i + 2], line))
++            i += 2
+         elif chars_match(text[i:], ";"):
+             tokens.append(Token(TokenTypes.Semicolon, text[i], line))
+             i += 1
+-- 
+2.25.1
+

@@ -1,0 +1,270 @@
+From 7bca8d2cac8359dbe7f639de54d4c983b82498ab Mon Sep 17 00:00:00 2001
+From: SimonFJ20 <simonfromjakobsen@gmail.com>
+Date: Thu, 20 Oct 2022 00:33:37 +0200
+Subject: [PATCH] some runtime
+
+---
+ danskc/runtime/.gitignore |  2 ++
+ danskc/runtime/Makefile   | 20 +++++++++++
+ danskc/runtime/array.c    | 74 +++++++++++++++++++++++++++++++++++++++
+ danskc/runtime/array.h    | 23 ++++++++++++
+ danskc/runtime/dstring.h  | 19 ++++++++++
+ danskc/runtime/hashmap.h  | 21 +++++++++++
+ danskc/runtime/object.h   |  8 +++++
+ danskc/runtime/panic.h    |  8 +++++
+ danskc/runtime/runtime.c  |  6 ++++
+ 9 files changed, 181 insertions(+)
+ create mode 100644 danskc/runtime/.gitignore
+ create mode 100644 danskc/runtime/Makefile
+ create mode 100644 danskc/runtime/array.c
+ create mode 100644 danskc/runtime/array.h
+ create mode 100644 danskc/runtime/dstring.h
+ create mode 100644 danskc/runtime/hashmap.h
+ create mode 100644 danskc/runtime/object.h
+ create mode 100644 danskc/runtime/panic.h
+ create mode 100644 danskc/runtime/runtime.c
+
+diff --git a/danskc/runtime/.gitignore b/danskc/runtime/.gitignore
+new file mode 100644
+index 0000000..1b51c15
+--- /dev/null
++++ b/danskc/runtime/.gitignore
+@@ -0,0 +1,2 @@
++danskr
++*.o
+\ No newline at end of file
+diff --git a/danskc/runtime/Makefile b/danskc/runtime/Makefile
+new file mode 100644
+index 0000000..beab4df
+--- /dev/null
++++ b/danskc/runtime/Makefile
+@@ -0,0 +1,20 @@
++
++CFLAGS=-Wall
++
++TARGET=danskr
++
++CFILES=$(wildcard *.c)
++HFILES=$(wildcard *.h)
++OFILES=$(patsubst %.c, %.o, $(CFILES))
++
++$(TARGET): $(OFILES)
++	gcc -o $@ $^
++
++%.o: %.c $(HEADERS)
++	gcc -o $@ $< -c $(CFLAGS)
++
++.PHONY: clean
++
++clean:
++	rm $(OFILES)
++	rm $(TARGET)
+diff --git a/danskc/runtime/array.c b/danskc/runtime/array.c
+new file mode 100644
+index 0000000..1b7ed36
+--- /dev/null
++++ b/danskc/runtime/array.c
+@@ -0,0 +1,74 @@
++#include "array.h"
++#include "panic.h"
++#include <stdlib.h>
++
++void construct_array(Array* array)
++{
++    *array = (Array) {
++        .size = 0,
++        .capacity = ARRAY_ELEMENT_CHUNK,
++        .ptr = calloc(ARRAY_ELEMENT_CHUNK, sizeof(void*)),
++    };
++}
++
++void destruct_array(Array* array)
++{
++    free(array->ptr);
++}
++
++Array* new_array()
++{
++    Array* array = calloc(1, sizeof(Array));
++    construct_array(array);
++    return array;
++}
++
++void delete_array(Array* array)
++{
++    destruct_array(array);
++    free(array);
++}
++
++size_t array_size(const Array* array)
++{
++    return array->size;
++}
++
++void* array_at(const Array* array, size_t index)
++{
++    if (index < 0 || index >= array->size)
++        PANIC("index out of bounds");
++    return array->ptr[index];
++}
++
++void array_push(Array* array, void* value)
++{
++    if (array->size == array->capacity) {
++        array->capacity += ARRAY_ELEMENT_CHUNK;
++        array->ptr = realloc(array->ptr, sizeof(void*) * array->capacity);
++    }
++    array->ptr[array->size] = value;
++    array->size++;
++}
++
++void* array_pop(Array* array)
++{
++    if (array->size == 0)
++        PANIC("cannot pop from empty array");
++    array->size--;
++    void* value = array->ptr[array->size];
++    array->ptr[array->size] = NULL;
++    return value;
++}
++
++void array_add(Array* array, size_t amount, void** values)
++{
++    if (array->capacity - array->size < amount) {
++        array->capacity = array->size + amount + (amount % ARRAY_ELEMENT_CHUNK);
++        array->ptr = realloc(array->ptr, sizeof(void*) * array->capacity);
++    }
++    for (int i = 0; i < amount; i++) {
++        array->ptr[array->size] = values[i];
++        array->size++;
++    }
++}
+diff --git a/danskc/runtime/array.h b/danskc/runtime/array.h
+new file mode 100644
+index 0000000..29c4896
+--- /dev/null
++++ b/danskc/runtime/array.h
+@@ -0,0 +1,23 @@
++#ifndef ARRAY_H
++#define ARRAY_H
++
++#include <stdlib.h>
++
++#define ARRAY_ELEMENT_CHUNK 8
++
++typedef struct Array {
++    size_t size, capacity;
++    void** ptr;
++} Array;
++
++void construct_array(Array* array);
++void destruct_array(Array* array);
++Array* new_array();
++void delete_array(Array* array);
++size_t array_size(const Array* array);
++void* array_at(const Array* array, size_t index);
++void array_push(Array* array, void* value);
++void* array_pop(Array* array);
++void array_add(Array* array, size_t amount, void** values);
++
++#endif
+\ No newline at end of file
+diff --git a/danskc/runtime/dstring.h b/danskc/runtime/dstring.h
+new file mode 100644
+index 0000000..5d1dd41
+--- /dev/null
++++ b/danskc/runtime/dstring.h
+@@ -0,0 +1,19 @@
++#ifndef DSTRING_H
++#define DSTRING_H
++
++#include <stdint.h>
++#include <stdlib.h>
++
++typedef struct String {
++    size_t size, capacity;
++    char* value;
++} String;
++
++void construct_string(String* string);
++void destruct_string(String* string);
++String* new_string();
++void delete_string(String* string);
++String* string_from(const char* value);
++uint64_t string_hash(String* string);
++
++#endif
+\ No newline at end of file
+diff --git a/danskc/runtime/hashmap.h b/danskc/runtime/hashmap.h
+new file mode 100644
+index 0000000..4e9b101
+--- /dev/null
++++ b/danskc/runtime/hashmap.h
+@@ -0,0 +1,21 @@
++#ifndef HASHMAP_H
++#define HASHMAP_H
++
++#include "array.h"
++#include <stdint.h>
++
++typedef struct HashMapPair {
++    uint64_t key;
++    void* value;
++} HashMapPair;
++
++typedef struct HashMap {
++    Array* pairs; // <HashMapPair>
++} HashMap;
++
++void construct_hashmap(HashMap* hashmap);
++void destruct_hashmap(HashMap* hashmap);
++HashMap* new_hashmap();
++void delete_hashmap();
++
++#endif
+\ No newline at end of file
+diff --git a/danskc/runtime/object.h b/danskc/runtime/object.h
+new file mode 100644
+index 0000000..7040117
+--- /dev/null
++++ b/danskc/runtime/object.h
+@@ -0,0 +1,8 @@
++#ifndef OBJECT_H
++#define OBJECT_H
++
++typedef struct Object {
++
++} Object;
++
++#endif
+\ No newline at end of file
+diff --git a/danskc/runtime/panic.h b/danskc/runtime/panic.h
+new file mode 100644
+index 0000000..e7d93e3
+--- /dev/null
++++ b/danskc/runtime/panic.h
+@@ -0,0 +1,8 @@
++#ifndef PANIC_H
++#define PANIC_H
++
++#include <stdio.h>
++
++#define PANIC(msg) (printf("panic: \"%s\", at ./%s:%d in \"%s\"", msg, __FILE__, __LINE__, __FUNCTION__))
++
++#endif
+\ No newline at end of file
+diff --git a/danskc/runtime/runtime.c b/danskc/runtime/runtime.c
+new file mode 100644
+index 0000000..09fef2c
+--- /dev/null
++++ b/danskc/runtime/runtime.c
+@@ -0,0 +1,6 @@
++#include <stdio.h>
++
++int main()
++{
++    printf("jar danskr\n");
++}
+-- 
+2.25.1
+

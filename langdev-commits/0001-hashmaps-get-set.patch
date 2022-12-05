@@ -1,0 +1,34 @@
+From 613a72474b67e87eadf8238d2ad637fb8fbcb86b Mon Sep 17 00:00:00 2001
+From: SimonFJ20 <simonfromjakobsen@gmail.com>
+Date: Fri, 21 Oct 2022 00:34:45 +0200
+Subject: [PATCH] hashmaps get set
+
+---
+ danskc/runtime/hashmap.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/danskc/runtime/hashmap.h b/danskc/runtime/hashmap.h
+index 4e9b101..b8da5d8 100644
+--- a/danskc/runtime/hashmap.h
++++ b/danskc/runtime/hashmap.h
+@@ -2,6 +2,8 @@
+ #define HASHMAP_H
+ 
+ #include "array.h"
++#include "dstring.h"
++#include "object.h"
+ #include <stdint.h>
+ 
+ typedef struct HashMapPair {
+@@ -17,5 +19,7 @@ void construct_hashmap(HashMap* hashmap);
+ void destruct_hashmap(HashMap* hashmap);
+ HashMap* new_hashmap();
+ void delete_hashmap();
++void set(String* key, Object* value);
++void get(String* key);
+ 
+ #endif
+\ No newline at end of file
+-- 
+2.25.1
+

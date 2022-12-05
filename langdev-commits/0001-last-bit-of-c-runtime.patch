@@ -1,0 +1,508 @@
+From 20d9d4fa70bd747bde36409b157db2f2b5cc0fb7 Mon Sep 17 00:00:00 2001
+From: SimonFJ20 <simonfromjakobsen@gmail.com>
+Date: Sat, 22 Oct 2022 00:21:06 +0200
+Subject: [PATCH] last bit of c runtime
+
+---
+ danskc/README.md         |   3 +-
+ danskc/runtime/Makefile  |  12 +++--
+ danskc/runtime/array.c   |  46 +++++++++++++++-
+ danskc/runtime/array.h   |   5 ++
+ danskc/runtime/dstring.c |  14 ++---
+ danskc/runtime/dstring.h |   8 +--
+ danskc/runtime/find.ts   |  70 ++++++++++++++++++++++++
+ danskc/runtime/hashmap.c | 114 +++++++++++++++++++++++++++++++++++++++
+ danskc/runtime/hashmap.h |   9 ++--
+ danskc/runtime/panic.h   |   2 +-
+ danskc/runtime/runtime.c |  25 ++++++---
+ 11 files changed, 278 insertions(+), 30 deletions(-)
+ create mode 100644 danskc/runtime/find.ts
+ create mode 100644 danskc/runtime/hashmap.c
+
+diff --git a/danskc/README.md b/danskc/README.md
+index 8c06f2c..f0f5739 100644
+--- a/danskc/README.md
++++ b/danskc/README.md
+@@ -4,4 +4,5 @@
+ ## Resources
+ 
+ - [How Do You Make An Assembler? - StackOverflow](https://stackoverflow.com/questions/2478142/how-do-you-make-an-assembler)
+-- [Assemblers And Loaders - By David Salomon](http://www.davidsalomon.name/assem.advertis/asl.pdf)
++- [Assemblers And Loaders - David Salomon](http://www.davidsalomon.name/assem.advertis/asl.pdf)
++- [Simple but Powerful Pratt Parsing - Alex Kladov](https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html)
+diff --git a/danskc/runtime/Makefile b/danskc/runtime/Makefile
+index beab4df..01cd176 100644
+--- a/danskc/runtime/Makefile
++++ b/danskc/runtime/Makefile
+@@ -1,5 +1,9 @@
+ 
+-CFLAGS=-Wall
++CFLAGS=-Wall -g
++LFLAGS=
++
++LD=clang
++CC=gcc
+ 
+ TARGET=danskr
+ 
+@@ -8,10 +12,10 @@ HFILES=$(wildcard *.h)
+ OFILES=$(patsubst %.c, %.o, $(CFILES))
+ 
+ $(TARGET): $(OFILES)
+-	gcc -o $@ $^
++	$(LD) -o $@ $^ $(LFLAGS)
+ 
+-%.o: %.c $(HEADERS)
+-	gcc -o $@ $< -c $(CFLAGS)
++%.o: %.c $(HFILES)
++	$(CC) -o $@ $< -c $(CFLAGS)
+ 
+ .PHONY: clean
+ 
+diff --git a/danskc/runtime/array.c b/danskc/runtime/array.c
+index 1b7ed36..eba95f2 100644
+--- a/danskc/runtime/array.c
++++ b/danskc/runtime/array.c
+@@ -13,6 +13,8 @@ void construct_array(Array* array)
+ 
+ void destruct_array(Array* array)
+ {
++    if (array->size != 0)
++        PANIC("cannot destruct non-empty array");
+     free(array->ptr);
+ }
+ 
+@@ -29,6 +31,20 @@ void delete_array(Array* array)
+     free(array);
+ }
+ 
++void array_destruct_deep(Array* array, void (*destructor)(void* value))
++{
++    array_destruct_values(array, destructor);
++    destruct_array(array);
++}
++
++void array_destruct_values(Array* array, void (*destructor)(void* value))
++{
++    while (array->size) {
++        array->size--;
++        destructor(array->ptr[array->size]);
++    }
++}
++
+ size_t array_size(const Array* array)
+ {
+     return array->size;
+@@ -67,8 +83,36 @@ void array_add(Array* array, size_t amount, void** values)
+         array->capacity = array->size + amount + (amount % ARRAY_ELEMENT_CHUNK);
+         array->ptr = realloc(array->ptr, sizeof(void*) * array->capacity);
+     }
+-    for (int i = 0; i < amount; i++) {
++    for (size_t i = 0; i < amount; i++) {
+         array->ptr[array->size] = values[i];
+         array->size++;
+     }
+ }
++
++void array_insert_at(Array* array, void* value, size_t index)
++{
++    if (index > array->size)
++        PANIC("index out of bounds");
++    Array buffer;
++    construct_array(&buffer);
++    while (array->size > index)
++        array_push(&buffer, array_pop(array));
++    array_push(array, value);
++    for (size_t i = 0; i < array_size(&buffer); i++)
++        array_push(array, array_pop(&buffer));
++    destruct_array(&buffer);
++}
++
++void array_remove_and_shift_at(Array* array, size_t index)
++{
++    if (index >= array->size)
++        PANIC("index out of bounds");
++    Array buffer;
++    construct_array(&buffer);
++    while (array->size > index)
++        array_push(&buffer, array_pop(array));
++    array_pop(array);
++    for (size_t i = 0; i < array_size(&buffer); i++)
++        array_push(array, array_pop(&buffer));
++    destruct_array(&buffer);
++}
+diff --git a/danskc/runtime/array.h b/danskc/runtime/array.h
+index 29c4896..c926cb8 100644
+--- a/danskc/runtime/array.h
++++ b/danskc/runtime/array.h
+@@ -4,6 +4,7 @@
+ #include <stdlib.h>
+ 
+ #define ARRAY_ELEMENT_CHUNK 8
++#define ARRAY_VALUE_DESTRUCTOR void (*)(void* value)
+ 
+ typedef struct Array {
+     size_t size, capacity;
+@@ -14,10 +15,14 @@ void construct_array(Array* array);
+ void destruct_array(Array* array);
+ Array* new_array();
+ void delete_array(Array* array);
++void array_destruct_deep(Array* array, ARRAY_VALUE_DESTRUCTOR);
++void array_destruct_values(Array* array, void (*destructor)(void* value));
+ size_t array_size(const Array* array);
+ void* array_at(const Array* array, size_t index);
+ void array_push(Array* array, void* value);
+ void* array_pop(Array* array);
+ void array_add(Array* array, size_t amount, void** values);
++void array_insert_at(Array* array, void* value, size_t index);
++void array_remove_and_shift_at(Array* array, size_t index);
+ 
+ #endif
+\ No newline at end of file
+diff --git a/danskc/runtime/dstring.c b/danskc/runtime/dstring.c
+index 9a2be98..af61a42 100644
+--- a/danskc/runtime/dstring.c
++++ b/danskc/runtime/dstring.c
+@@ -45,7 +45,7 @@ String* string_from(const char* value)
+     return string;
+ }
+ 
+-String* string_clone(String* other)
++String* string_clone(const String* other)
+ {
+     String* string = calloc(1, sizeof(String));
+     *string = (String) {
+@@ -57,7 +57,7 @@ String* string_clone(String* other)
+     return string;
+ }
+ 
+-size_t string_size(String* string)
++size_t string_size(const String* string)
+ {
+     return string->size;
+ }
+@@ -86,7 +86,7 @@ String* string_add(String* string, String* other)
+         string->capacity += other->size + (other->size % STRING_CHAR_CHUNK);
+         string->value = realloc(string->value, string->capacity);
+     }
+-    for (int i = 0; i < other->size; i++) {
++    for (size_t i = 0; i < other->size; i++) {
+         string->value[string->size] = other->value[i];
+         string->size++;
+     }
+@@ -94,15 +94,15 @@ String* string_add(String* string, String* other)
+     return string;
+ }
+ 
+-const char* string_as_cstr(String* string)
++const char* string_as_cstr(const String* string)
+ {
+     return string->value;
+ }
+ 
+-uint64_t string_hash(String* string)
++uint64_t string_hash(const String* string)
+ {
+     uint64_t hash = STRING_MAGIC_HASH_VALUE;
+-    for (int i = 0; i < string->value[i]; i++)
+-        hash = ((hash << 5) + hash) + i;
++    for (size_t i = 0; i < string->size; i++)
++        hash = ((hash << 5) + hash) + string->value[i];
+     return hash;
+ }
+diff --git a/danskc/runtime/dstring.h b/danskc/runtime/dstring.h
+index 8c7f9eb..92cd505 100644
+--- a/danskc/runtime/dstring.h
++++ b/danskc/runtime/dstring.h
+@@ -17,12 +17,12 @@ void destruct_string(String* string);
+ String* new_string();
+ void delete_string(String* string);
+ String* string_from(const char* value);
+-String* string_clone(String* other);
+-size_t string_size(String* string);
++String* string_clone(const String* other);
++size_t string_size(const String* string);
+ char string_at(String* string, size_t index);
+ void string_add_char(String* string, char value);
+ String* string_add(String* string, String* other);
+-const char* string_as_cstr(String* string);
+-uint64_t string_hash(String* string);
++const char* string_as_cstr(const String* string);
++uint64_t string_hash(const String* string);
+ 
+ #endif
+\ No newline at end of file
+diff --git a/danskc/runtime/find.ts b/danskc/runtime/find.ts
+new file mode 100644
+index 0000000..3cb4b03
+--- /dev/null
++++ b/danskc/runtime/find.ts
+@@ -0,0 +1,70 @@
++import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
++
++type Pair = {
++    key: number;
++    value: string;
++};
++
++const pair = (key: number, value: string): Pair => ({ key, value });
++
++// const find = (
++//     pairs: Pair[],
++//     key: number,
++//     first: number,
++//     last: number,
++// ): number => {
++//     for (let i = first; i < last; i++) if (pairs[i].key === key) return i;
++//     return -1;
++// };
++
++const find = (
++    pairs: Pair[],
++    key: number,
++    first: number,
++    last: number,
++): number => {
++    if (pairs.length === 0) return -1;
++    const middle = Math.floor((first + last) / 2);
++    if (pairs[middle].key === key) return middle;
++    else if (first === last) return -1;
++    else if (pairs[middle].key > key) return find(pairs, key, first, middle);
++    else return find(pairs, key, middle, last);
++};
++
++Deno.test("0 elements", () => {
++    assertEquals(find([], 0, 0, 0), -1);
++});
++
++Deno.test("1 elements", () => {
++    assertEquals(find([pair(0, "a")], 0, 0, 1), 0);
++});
++
++Deno.test("2 elements", () => {
++    assertEquals(find([pair(0, "a"), pair(1, "b")], 0, 0, 2), 0);
++    assertEquals(find([pair(0, "a"), pair(1, "b")], 1, 0, 2), 1);
++});
++
++Deno.test("3 elements", () => {
++    assertEquals(find([pair(0, "a"), pair(1, "b"), pair(2, "c")], 0, 0, 3), 0);
++    assertEquals(find([pair(0, "a"), pair(1, "b"), pair(2, "c")], 1, 0, 3), 1);
++    assertEquals(find([pair(0, "a"), pair(1, "b"), pair(2, "c")], 2, 0, 3), 2);
++});
++
++Deno.test("4 elements", () => {
++    assertEquals(
++        find([pair(0, "a"), pair(1, "b"), pair(2, "c"), pair(3, "d")], 0, 0, 4),
++        0,
++    );
++    assertEquals(
++        find([pair(0, "a"), pair(1, "b"), pair(2, "c"), pair(3, "d")], 1, 0, 4),
++        1,
++    );
++    assertEquals(
++        find([pair(0, "a"), pair(1, "b"), pair(2, "c"), pair(3, "d")], 2, 0, 4),
++        2,
++    );
++    assertEquals(
++        find([pair(0, "a"), pair(1, "b"), pair(2, "c"), pair(3, "d")], 3, 0, 4),
++        3,
++    );
++});
+diff --git a/danskc/runtime/hashmap.c b/danskc/runtime/hashmap.c
+new file mode 100644
+index 0000000..fa6b434
+--- /dev/null
++++ b/danskc/runtime/hashmap.c
+@@ -0,0 +1,114 @@
++#include "hashmap.h"
++#include "array.h"
++#include "dstring.h"
++#include "object.h"
++#include "panic.h"
++#include <assert.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++
++void construct_hashmap(HashMap* hashmap)
++{
++    *hashmap = (HashMap) {
++        .pairs = new_array(),
++    };
++}
++
++void destruct_hashmap(HashMap* hashmap)
++{
++    array_destruct_values(hashmap->pairs, free);
++    delete_array(hashmap->pairs);
++}
++
++HashMap* new_hashmap()
++{
++    HashMap* hashmap = calloc(1, sizeof(HashMap));
++    construct_hashmap(hashmap);
++    return hashmap;
++}
++
++void delete_hashmap(HashMap* hashmap)
++{
++    destruct_hashmap(hashmap);
++    free(hashmap);
++}
++
++HashMapPair* hashmap_pair_at(const HashMap* hashmap, size_t index)
++{
++    return array_at(hashmap->pairs, index);
++}
++
++size_t find_pair_in_range_maybe(const HashMap* hashmap, uint64_t key_hash, size_t first, size_t last)
++{
++    size_t pairs_size = array_size(hashmap->pairs);
++    if (pairs_size == 0 || first >= pairs_size)
++        return -1;
++    size_t middle = (first + last) / 2;
++    HashMapPair* pair = array_at(hashmap->pairs, middle);
++    if (key_hash < pair->key) {
++        return find_pair_in_range_maybe(hashmap, key_hash, first, middle - 1);
++    } else if (key_hash > pair->key) {
++        return find_pair_in_range_maybe(hashmap, key_hash, middle + 1, last);
++    } else {
++        assert(pair->key == key_hash);
++        return middle;
++    }
++}
++
++size_t find_unique_sorted_index(const HashMap* hashmap, uint64_t key_hash)
++{
++    for (size_t i = 0; i < array_size(hashmap->pairs); i++) {
++        uint64_t pair_hash = hashmap_pair_at(hashmap, i)->key;
++        if (pair_hash == key_hash)
++            PANIC("duplicate keys");
++        else if (pair_hash > key_hash)
++            return i;
++    }
++    return array_size(hashmap->pairs);
++}
++
++void hashmap_set(HashMap* hashmap, const String* key, void* value)
++{
++    uint64_t key_hash = string_hash(key);
++    size_t hashmap_size = array_size(hashmap->pairs);
++    if (array_size(hashmap->pairs) > 0) {
++        size_t index = find_pair_in_range_maybe(hashmap, key_hash, 0, hashmap_size);
++        if (index != -1) {
++            HashMapPair* pair = hashmap_pair_at(hashmap, index);
++            pair->value = value;
++        } else {
++            HashMapPair* pair = calloc(1, sizeof(HashMapPair));
++            *pair = (HashMapPair) {
++                .key = key_hash,
++                .value = value,
++            };
++            size_t unique_index = find_unique_sorted_index(hashmap, key_hash);
++            array_insert_at(hashmap->pairs, pair, unique_index);
++        }
++    } else {
++        HashMapPair* pair = calloc(1, sizeof(HashMapPair));
++        *pair = (HashMapPair) {
++            .key = key_hash,
++            .value = value,
++        };
++        size_t unique_index = find_unique_sorted_index(hashmap, key_hash);
++        array_insert_at(hashmap->pairs, pair, unique_index);
++    }
++}
++
++void* hashmap_get_maybe(const HashMap* hashmap, const String* key)
++{
++    size_t index = find_pair_in_range_maybe(hashmap, string_hash(key), 0, array_size(hashmap->pairs));
++    if (index != -1)
++        return hashmap_pair_at(hashmap, index)->value;
++    else
++        return NULL;
++}
++
++void hashmap_delete(HashMap* hashmap, const String* key)
++{
++    size_t index = find_pair_in_range_maybe(hashmap, string_hash(key), 0, array_size(hashmap->pairs));
++    if (index != -1)
++        array_remove_and_shift_at(hashmap->pairs, index);
++}
+diff --git a/danskc/runtime/hashmap.h b/danskc/runtime/hashmap.h
+index b8da5d8..99d2fe5 100644
+--- a/danskc/runtime/hashmap.h
++++ b/danskc/runtime/hashmap.h
+@@ -12,14 +12,15 @@ typedef struct HashMapPair {
+ } HashMapPair;
+ 
+ typedef struct HashMap {
+-    Array* pairs; // <HashMapPair>
++    Array* pairs; // Array<HashMapPair>
+ } HashMap;
+ 
+ void construct_hashmap(HashMap* hashmap);
+ void destruct_hashmap(HashMap* hashmap);
+ HashMap* new_hashmap();
+-void delete_hashmap();
+-void set(String* key, Object* value);
+-void get(String* key);
++void delete_hashmap(HashMap* hashmap);
++void hashmap_set(HashMap* hashmap, const String* key, void* value);
++void* hashmap_get_maybe(const HashMap* hashmap, const String* key);
++void hashmap_delete(HashMap* hashmap, const String* key);
+ 
+ #endif
+\ No newline at end of file
+diff --git a/danskc/runtime/panic.h b/danskc/runtime/panic.h
+index e7d93e3..0efe3b8 100644
+--- a/danskc/runtime/panic.h
++++ b/danskc/runtime/panic.h
+@@ -3,6 +3,6 @@
+ 
+ #include <stdio.h>
+ 
+-#define PANIC(msg) (printf("panic: \"%s\", at ./%s:%d in \"%s\"", msg, __FILE__, __LINE__, __FUNCTION__))
++#define PANIC(msg) (printf("panic: \"%s\", at \"./%s:%d\" in function \"%s\"\n\n", msg, __FILE__, __LINE__, __FUNCTION__), exit(1))
+ 
+ #endif
+\ No newline at end of file
+diff --git a/danskc/runtime/runtime.c b/danskc/runtime/runtime.c
+index bd3c709..848e53d 100644
+--- a/danskc/runtime/runtime.c
++++ b/danskc/runtime/runtime.c
+@@ -1,15 +1,24 @@
+ #include "dstring.h"
++#include "hashmap.h"
++#include "panic.h"
+ #include <stdint.h>
+ #include <stdio.h>
+ 
+ int main()
+ {
+-    String* hello = string_from("hello");
+-    String* world = string_from("world");
+-    String* string = string_add(hello, world);
+-    const char* value = string_as_cstr(string);
+-    size_t length = string_size(string);
+-    uint64_t hash = string_hash(string);
+-    printf("value: \"%s\", length: %ld, hash: %ld\n", value, length, hash);
+-    delete_string(string);
++    int a = 4, b = 7;
++    HashMap* map = new_hashmap();
++    hashmap_set(map, string_from("a"), &a);
++    int* pa = hashmap_get_maybe(map, string_from("a"));
++    printf("*pa = %d\n", *pa);
++    hashmap_set(map, string_from("b"), &b);
++    int* pb = hashmap_get_maybe(map, string_from("b"));
++    if (pb == NULL)
++        PANIC("pb = NULL");
++    printf("*pb = %d\n", *pb);
++    hashmap_delete(map, string_from("b"));
++    int* pb1 = hashmap_get_maybe(map, string_from("b"));
++    printf("pb1 = %p\n", pb1);
++    int* pa1 = hashmap_get_maybe(map, string_from("a"));
++    printf("pa1 = %p\n", pa1);
+ }
+-- 
+2.25.1
+
