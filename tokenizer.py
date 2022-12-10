@@ -21,6 +21,8 @@ class TokenTypes(Enum):
     KwTilbagesend = auto()
     KwFalsk = auto()
     KwSand = auto()
+    KwOg = auto()
+    KwEller = auto()
     LParen = auto()
     RParen = auto()
     LBrace = auto()
@@ -133,6 +135,14 @@ def tokenize(text: str) -> List[Token]:
         elif chars_match(text[i:], "sand"):
             l = len("sand")
             tokens.append(Token(TokenTypes.KwSand, text[i : i + l], line))
+            i += l
+        elif chars_match(text[i:], "og"):
+            l = len("og")
+            tokens.append(Token(TokenTypes.KwOg, text[i : i + l], line))
+            i += l
+        elif chars_match(text[i:], "eller"):
+            l = len("eller")
+            tokens.append(Token(TokenTypes.KwEller, text[i : i + l], line))
             i += l
         elif text[i] in ID_CHARS:
             value = text[i]

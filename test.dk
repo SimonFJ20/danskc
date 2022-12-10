@@ -14,7 +14,7 @@ funktion begynd() -> heltal
     lad a: heltal = 3
 
     hvis a == 4 så
-        print("hello world\n")
+        skriv("hello world\n")
     ellers
         lad b: tekst = "bruh moment"
         lad c: heltal = 4

@@ -2,6 +2,7 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import Dict, List, Optional, Tuple, cast
 from parser_ import (
+    ParsedArrayType,
     ParsedBreak,
     ParsedIdType,
     ParsedParam,
@@ -460,6 +461,8 @@ class CheckedBinaryOperations(Enum):
     LTE = auto()
     GT = auto()
     GTE = auto()
+    And = auto()
+    Or = auto()
 
 
 class CheckedBinary(CheckedExpr):
@@ -661,8 +664,60 @@ class BranchedLocalTable(LocalTable):
 
 def add_global_definitions(table: GlobalTable) -> None:
     table.define(
-        "print",
+        "skriv_heltal",
+        CheckedFuncType([CheckedParam("værdi", CheckedIntType())], CheckedIntType()),
+    )
+    table.define(
+        "skriv_decimal",
+        CheckedFuncType([CheckedParam("værdi", CheckedFloatType())], CheckedIntType()),
+    )
+    table.define(
+        "skriv_boolsk",
+        CheckedFuncType([CheckedParam("værdi", CheckedBoolType())], CheckedIntType()),
+    )
+    table.define(
+        "skriv_tegn",
+        CheckedFuncType([CheckedParam("værdi", CheckedCharType())], CheckedIntType()),
+    )
+    table.define(
+        "skriv",
+        CheckedFuncType([CheckedParam("værdi", CheckedStringType())], CheckedIntType()),
+    )
+    table.define(
+        "skriv_linje",
         CheckedFuncType([CheckedParam("tekst", CheckedStringType())], CheckedIntType()),
+    )
+    table.define(
+        "læs_fil",
+        CheckedFuncType(
+            [CheckedParam("tekst", CheckedStringType())], CheckedStringType()
+        ),
+    )
+
+    table.define(
+        "tekst_længde",
+        CheckedFuncType([CheckedParam("tekst", CheckedStringType())], CheckedIntType()),
+    )
+    table.define(
+        "tom_tegnliste",
+        CheckedFuncType([], CheckedArrayType(CheckedCharType())),
+    )
+    table.define(
+        "tegnliste_tilføj",
+        CheckedFuncType(
+            [
+                CheckedParam("liste", CheckedArrayType(CheckedCharType())),
+                CheckedParam("værdi", CheckedCharType()),
+            ],
+            CheckedIntType(),
+        ),
+    )
+    table.define(
+        "tegnliste_til_tekst",
+        CheckedFuncType(
+            [CheckedParam("værdi", CheckedArrayType(CheckedCharType()))],
+            CheckedStringType(),
+        ),
     )
 
 
@@ -802,6 +857,8 @@ def check_return(node: ParsedReturn, local_table: LocalTable) -> CheckedReturn:
 def check_type(node: ParsedType) -> CheckedType:
     if node.type_type() == ParsedTypeTypes.Id:
         return check_id_type(cast(ParsedIdType, node))
+    elif node.type_type() == ParsedTypeTypes.Array:
+        return CheckedArrayType(check_type(cast(ParsedArrayType, node).inner_type))
     else:
         raise Exception(f"unimplemented/unknown type {node.type_type()}")
 
@@ -915,14 +972,20 @@ def check_accessing(node: ParsedAccessing, local_table: LocalTable) -> CheckedAc
 
 def check_indexing(node: ParsedIndexing, local_table: LocalTable) -> CheckedIndexing:
     checked_subject = check_expr(node.subject, local_table)
-    if checked_subject.expr_value_type() == CheckedTypeTypes.Array:
+    if checked_subject.expr_value_type().type_type() == CheckedTypeTypes.Array:
         array_subject = cast(CheckedArray, checked_subject)
         checked_value = check_expr(node.value, local_table)
-        if checked_value.expr_value_type() != CheckedTypeTypes.Int:
+        if checked_value.expr_value_type().type_type() != CheckedTypeTypes.Int:
             raise Exception("type cannot index into array")
         return CheckedIndexing(
             array_subject, checked_value, array_subject.expr_value_type()
         )
+    elif checked_subject.expr_value_type().type_type() == CheckedTypeTypes.String:
+        string_subject = cast(CheckedString, checked_subject)
+        checked_value = check_expr(node.value, local_table)
+        if checked_value.expr_value_type().type_type() != CheckedTypeTypes.Int:
+            raise Exception("type cannot index into array")
+        return CheckedIndexing(string_subject, checked_value, CheckedCharType())
     else:
         raise Exception("value is not indexable")
 
@@ -940,7 +1003,9 @@ def check_call(node: ParsedCall, local_table: LocalTable) -> CheckedCall:
             checked_args[i].expr_value_type().type_type()
             != subject_type.params[i].value_type.type_type()
         ):
-            raise Exception(f"argument nr. {i + 1} is invalid")
+            raise Exception(
+                f"argument nr. {i + 1} is invalid, expected {subject_type.params[i].value_type.type_type()}, got {checked_args[i].expr_value_type().type_type()}"
+            )
     return CheckedCall(
         checked_subject,
         checked_args,
@@ -980,7 +1045,9 @@ def check_binary(node: ParsedBinary, local_table: LocalTable) -> CheckedBinary:
             )
         else:
             print(f"types = {type_combo}")
-            raise Exception("unsupported types for binary add operation")
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
     elif node.operation == ParsedBinaryOperations.Subtract:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(
@@ -990,7 +1057,9 @@ def check_binary(node: ParsedBinary, local_table: LocalTable) -> CheckedBinary:
                 CheckedIntType(),
             )
         else:
-            raise Exception("unsupported types for binary add operation")
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
     elif node.operation == ParsedBinaryOperations.Multiply:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(
@@ -1000,70 +1069,162 @@ def check_binary(node: ParsedBinary, local_table: LocalTable) -> CheckedBinary:
                 CheckedIntType(),
             )
         else:
-            raise Exception("unsupported types for binary add operation")
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
     elif node.operation == ParsedBinaryOperations.EQ:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(
                 checked_left,
                 checked_right,
                 CheckedBinaryOperations.EQ,
-                CheckedIntType(),
+                CheckedBoolType(),
             )
         else:
-            raise Exception("unsupported types for binary add operation")
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
     elif node.operation == ParsedBinaryOperations.NE:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(
                 checked_left,
                 checked_right,
                 CheckedBinaryOperations.NE,
-                CheckedIntType(),
+                CheckedBoolType(),
             )
         else:
-            raise Exception("unsupported types for binary add operation")
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
     elif node.operation == ParsedBinaryOperations.LT:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(
                 checked_left,
                 checked_right,
                 CheckedBinaryOperations.LT,
-                CheckedIntType(),
+                CheckedBoolType(),
             )
         else:
-            raise Exception("unsupported types for binary add operation")
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
     elif node.operation == ParsedBinaryOperations.GT:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(
                 checked_left,
                 checked_right,
                 CheckedBinaryOperations.GT,
-                CheckedIntType(),
+                CheckedBoolType(),
             )
         else:
-            raise Exception("unsupported types for binary add operation")
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
     elif node.operation == ParsedBinaryOperations.LTE:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(
                 checked_left,
                 checked_right,
                 CheckedBinaryOperations.LTE,
-                CheckedIntType(),
+                CheckedBoolType(),
+            )
+        elif type_combo == (CheckedTypeTypes.Char, CheckedTypeTypes.Char):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.LTE,
+                CheckedBoolType(),
             )
         else:
-            raise Exception("unsupported types for binary add operation")
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
     elif node.operation == ParsedBinaryOperations.GTE:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(
                 checked_left,
                 checked_right,
                 CheckedBinaryOperations.GTE,
-                CheckedIntType(),
+                CheckedBoolType(),
+            )
+        elif type_combo == (CheckedTypeTypes.Char, CheckedTypeTypes.Char):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.GTE,
+                CheckedBoolType(),
             )
         else:
-            raise Exception("unsupported types for binary add operation")
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
+    elif node.operation == ParsedBinaryOperations.GTE:
+        if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.GTE,
+                CheckedBoolType(),
+            )
+        elif type_combo == (CheckedTypeTypes.Char, CheckedTypeTypes.Char):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.GTE,
+                CheckedBoolType(),
+            )
+        else:
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
+    elif node.operation == ParsedBinaryOperations.And:
+        if type_combo == (CheckedTypeTypes.Bool, CheckedTypeTypes.Bool):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.And,
+                CheckedBoolType(),
+            )
+        else:
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
+    elif node.operation == ParsedBinaryOperations.Or:
+        if type_combo == (CheckedTypeTypes.Bool, CheckedTypeTypes.Bool):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.Or,
+                CheckedBoolType(),
+            )
+        else:
+            raise Exception(
+                f"unsupported types for binary {node.operation} operation {type_combo}"
+            )
     else:
         raise Exception("unsupported binary operation")
 
 
 def check_assign(node: ParsedAssign, local_table: LocalTable) -> CheckedAssign:
-    raise NotImplementedError()
+    subject = check_expr(node.subject, local_table)
+    if subject.expr_type() not in [
+        CheckedExprTypes.Id,
+        CheckedExprTypes.Accessing,
+        CheckedExprTypes.Indexing,
+    ]:
+        raise Exception("unsupported left-hand side of assignment")
+    value = check_expr(node.value, local_table)
+    if node.operation == ParsedAssignOperations.Assign:
+        return CheckedAssign(
+            subject, value, CheckedAssignOperations.Assign, subject.expr_value_type()
+        )
+    elif node.operation == ParsedAssignOperations.Increment:
+        return CheckedAssign(
+            subject, value, CheckedAssignOperations.Increment, subject.expr_value_type()
+        )
+    elif node.operation == ParsedAssignOperations.Decrement:
+        return CheckedAssign(
+            subject, value, CheckedAssignOperations.Decrement, subject.expr_value_type()
+        )
+    else:
+        raise NotImplementedError()

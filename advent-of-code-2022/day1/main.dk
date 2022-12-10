@@ -1,0 +1,18 @@
+
+funktion begynd() -> heltal
+    lad input: tekst = læs_fil("advent-of-code-2022/day1/input.txt")
+    lad i: heltal = 0
+    lad største: heltal = 0
+    lad buffer: tegn[] = tom_tegnliste()
+    mens i < tekst_længde(input) så
+        lad c: tegn = input[i]
+        hvis c >= '0' eller c <= '9' så
+            tegnliste_tilføj(buffer, c)
+        ellers
+            lad tal_tekst: tekst = tegnliste_til_tekst(buffer)
+        slut 
+        skriv_tegn(input[i])
+        i = i + 1
+    slut
+    tilbagesend 0
+slut

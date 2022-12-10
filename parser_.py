@@ -144,6 +144,7 @@ class ParsedReturn(ParsedStatement):
 
 class ParsedTypeTypes(Enum):
     Id = auto()
+    Array = auto()
 
 
 class ParsedParam:
@@ -176,6 +177,18 @@ class ParsedIdType(ParsedType):
 
     def __str__(self) -> str:
         return f'IdType {{ value: "{self.value}" }}'
+
+
+class ParsedArrayType(ParsedType):
+    def __init__(self, inner_type: ParsedType) -> None:
+        super().__init__()
+        self.inner_type = inner_type
+
+    def type_type(self) -> ParsedTypeTypes:
+        return ParsedTypeTypes.Array
+
+    def __str__(self) -> str:
+        return f'ArrayType {{ value: "{self.inner_type}" }}'
 
 
 class ParsedExprTypes(Enum):
@@ -373,6 +386,8 @@ class ParsedBinaryOperations(Enum):
     LTE = auto()
     GT = auto()
     GTE = auto()
+    And = auto()
+    Or = auto()
 
 
 class ParsedBinary(ParsedExpr):
@@ -568,12 +583,24 @@ class Parser:
         return ParsedExprStatement(self.parse_expr())
 
     def parse_type(self) -> ParsedType:
-        if self.current_type() == TokenTypes.Id:
-            value = self.current().value
+        return self.parse_array_type()
+
+    def parse_array_type(self) -> ParsedType:
+        inner_type = self.parse_id_type()
+        if self.current_type() == TokenTypes.LBracket:
             self.step()
-            return ParsedIdType(value)
+            self.expect(TokenTypes.RBracket)
+            self.step()
+            return ParsedArrayType(inner_type)
         else:
-            raise Exception(f"expected type, got {self.current()}")
+            return inner_type
+
+    def parse_id_type(self) -> ParsedType:
+        if self.current_type() != TokenTypes.Id:
+            raise Exception(f"expected id type, got {self.current()}")
+        value = self.current().value
+        self.step()
+        return ParsedIdType(value)
 
     def parse_expr(self) -> ParsedExpr:
         if self.current_type() == TokenTypes.LBrace:
@@ -685,28 +712,36 @@ class Parser:
             return self.stepAndReturn(ParsedBinaryOperations.GT)
         elif self.current_type() == TokenTypes.GTE:
             return self.stepAndReturn(ParsedBinaryOperations.GTE)
+        elif self.current_type() == TokenTypes.KwOg:
+            return self.stepAndReturn(ParsedBinaryOperations.And)
+        elif self.current_type() == TokenTypes.KwEller:
+            return self.stepAndReturn(ParsedBinaryOperations.Or)
         else:
             return None
 
     def binary_op_precedence(self, op: ParsedBinaryOperations) -> int:
         if op == ParsedBinaryOperations.Add:
-            return 3
+            return 5
         elif op == ParsedBinaryOperations.Subtract:
-            return 3
+            return 5
         elif op == ParsedBinaryOperations.Multiply:
-            return 4
+            return 6
         elif op == ParsedBinaryOperations.EQ:
-            return 1
+            return 3
         elif op == ParsedBinaryOperations.NE:
-            return 1
+            return 3
         elif op == ParsedBinaryOperations.LT:
-            return 2
+            return 4
         elif op == ParsedBinaryOperations.LTE:
-            return 2
+            return 4
         elif op == ParsedBinaryOperations.GT:
-            return 2
+            return 4
         elif op == ParsedBinaryOperations.GTE:
+            return 4
+        elif op == ParsedBinaryOperations.And:
             return 2
+        elif op == ParsedBinaryOperations.Or:
+            return 1
         else:
             raise Exception(f"unexhaustive match, got {op}")
 

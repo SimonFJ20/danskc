@@ -5,6 +5,8 @@
 
 ```
 python3 danskc.py tests/adder.dk --outfile c/test.c && gcc c/test.c -std=c17 -Wall -Wextra && ./a.out; echo $?
+
+python3 danskc.py advent-of-code-2022/day1/main.dk --outfile c/temp.c && gcc c/temp.c c/runtime.c -std=c17 -Wall -Wextra -fsanitize=address && ./a.out; echo $?
 ```
 
 ## Resources
