@@ -10,27 +10,35 @@ def main() -> None:
     argparser = ArgumentParser("danskc")
     argparser.add_argument("file")
     argparser.add_argument("--outfile", required=True)
+    argparser.add_argument("--debug", action="store_true")
     args = argparser.parse_args()
     with open(args.file) as file:
         text = file.read()
-        print("\nTOKENIZING...\n")
+        if args.debug:
+            print("\nTOKENIZING...\n")
         tokens = tokenize(text)
-        print("\n=== TOKEN ===\n")
-        for token in tokens:
-            print(token)
-        print("\nPARSING...\n")
+        if args.debug:
+            print("\n=== TOKEN ===\n")
+        if args.debug:
+            for token in tokens:
+                print(token)
+        if args.debug:
+            print("\nPARSING...\n")
         parser = Parser(tokens)
         parsed_ast = parser.parse_statements()
-        print("\n=== PARSED AST ===\n")
-        print(parsed_statements_to_string(parsed_ast))
-        print("\nCHECKING...\n")
+        if args.debug:
+            print("\n=== PARSED AST ===\n")
+            print(parsed_statements_to_string(parsed_ast))
+            print("\nCHECKING...\n")
         (checked_ast, global_table) = check_top_level_statements(parsed_ast)
-        print("\n=== CHECKED AST ===\n")
-        print("no printing :(")
-        print("\n=== GENERATING C CODE ===\n")
+        if args.debug:
+            print("\n=== CHECKED AST ===\n")
+            print("no printing :(")
+            print("\n=== GENERATING C CODE ===\n")
         c_code = generate_c_code(checked_ast, global_table)
-        print("\n=== GENERATED C CODE ===\n")
-        print(c_code)
+        if args.debug:
+            print("\n=== GENERATED C CODE ===\n")
+            print(c_code)
         with open(args.outfile, "w") as outfile:
             outfile.write(c_code)
 

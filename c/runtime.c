@@ -80,7 +80,7 @@ long array_push(Array* array, size_t value)
 {
     if (array->length + 1 > array->capacity) {
         array->capacity += array_block_size;
-        array->buffer = realloc(array->buffer, array->capacity);
+        array->buffer = realloc(array->buffer, array->capacity * sizeof(size_t*));
         if (!array->buffer) {
             fprintf(stderr, "terminator: allocation failure\n");
             exit(1);
@@ -101,28 +101,6 @@ size_t array_at(Array* array, int64_t i)
     } else {
         return array->buffer[i];
     }
-}
-
-long tekst_laengde(const String* string) { return string->length; }
-
-Array* tom_tegnliste() { return array_new(); }
-
-void tegnliste_tilfoej(Array* array, char value)
-{
-    array_push(array, value);
-}
-
-String* tegnliste_til_tekst(Array* array)
-{
-    if (array->length > 8192) {
-        fprintf(stderr, "terminator: avoided buffer overflow\n");
-        exit(1);
-    }
-    char buffer[8193] = { 0 };
-    for (int i = 0; i < 8192; i++)
-        buffer[i] = array_at(array, i);
-    buffer[8192] = '\0';
-    return string_from(buffer);
 }
 
 long skriv_heltal(long value)
@@ -177,4 +155,39 @@ String* laes_fil(String* filename)
     fclose(file);
     text_buffer[65525] = '\0';
     return string_from(text_buffer);
+}
+
+long fejl(const String* message)
+{
+    fprintf(stderr, "fejl: %s\n", message->buffer);
+    return 0;
+}
+
+long tekst_laengde(const String* string) { return string->length; }
+
+long laengde_af_tegnliste(const Array* array) { return array->length; }
+
+Array* tom_tegnliste() { return array_new(); }
+
+void tegnliste_tilfoej(Array* array, char value)
+{
+    array_push(array, value);
+}
+
+String* tegnliste_til_tekst(Array* array)
+{
+    if (array->length > 8192) {
+        fprintf(stderr, "terminator: avoided buffer overflow\n");
+        exit(1);
+    }
+    char buffer[8193] = { 0 };
+    for (size_t i = 0; i < array->length; i++)
+        buffer[i] = array_at(array, i);
+    buffer[8192] = '\0';
+    return string_from(buffer);
+}
+
+long tekst_til_heltal(String* value)
+{
+    return atol(value->buffer);
 }

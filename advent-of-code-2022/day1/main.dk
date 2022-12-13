@@ -1,18 +1,42 @@
 
+KOMMENTER
+
+13-12-2022
+$ python3 danskc.py advent-of-code-2022/day1/main.dk --outfile c/temp.c && gcc c/temp.c c/runtime.c -std=c17 -Wall -Wextra && ./a.out
+svaret er 66719
+
+FÆRDIG
+
 funktion begynd() -> heltal
     lad input: tekst = læs_fil("advent-of-code-2022/day1/input.txt")
-    lad i: heltal = 0
     lad største: heltal = 0
+    lad akkumulator: heltal = 0
     lad buffer: tegn[] = tom_tegnliste()
+    lad i: heltal = 0
+    lad sidste_var_tom: boolsk = falsk
     mens i < tekst_længde(input) så
         lad c: tegn = input[i]
-        hvis c >= '0' eller c <= '9' så
-            tegnliste_tilføj(buffer, c)
-        ellers
+        hvis c == '\n' og sidste_var_tom så
+            hvis akkumulator > største så
+                største = akkumulator
+            slut
+            akkumulator = 0
+        ellers hvis c == '\n' så
             lad tal_tekst: tekst = tegnliste_til_tekst(buffer)
-        slut 
-        skriv_tegn(input[i])
+            buffer = tom_tegnliste()
+            lad tal: heltal = tekst_til_heltal(tal_tekst)
+            akkumulator += tal
+            sidste_var_tom = sand
+        ellers hvis c >= '0' og c <= '9' så
+            tegnliste_tilføj(buffer, c)
+            sidste_var_tom = falsk
+        ellers
+            fejl("burde ikke kunne ske")
+        slut
         i = i + 1
     slut
+    skriv("svaret er ")
+    skriv_heltal(største)
+    skriv_linje("")
     tilbagesend 0
 slut

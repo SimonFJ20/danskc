@@ -695,8 +695,19 @@ def add_global_definitions(table: GlobalTable) -> None:
     )
 
     table.define(
+        "fejl",
+        CheckedFuncType([CheckedParam("tekst", CheckedStringType())], CheckedIntType()),
+    )
+    table.define(
         "tekst_længde",
         CheckedFuncType([CheckedParam("tekst", CheckedStringType())], CheckedIntType()),
+    )
+    table.define(
+        "længde_af_tegnliste",
+        CheckedFuncType(
+            [CheckedParam("liste", CheckedArrayType(CheckedCharType()))],
+            CheckedIntType(),
+        ),
     )
     table.define(
         "tom_tegnliste",
@@ -717,6 +728,13 @@ def add_global_definitions(table: GlobalTable) -> None:
         CheckedFuncType(
             [CheckedParam("værdi", CheckedArrayType(CheckedCharType()))],
             CheckedStringType(),
+        ),
+    )
+    table.define(
+        "tekst_til_heltal",
+        CheckedFuncType(
+            [CheckedParam("værdi", CheckedStringType())],
+            CheckedIntType(),
         ),
     )
 
@@ -872,6 +890,8 @@ def check_id_type(node: ParsedIdType) -> CheckedType:
         return CheckedCharType()
     elif node.value == "tekst":
         return CheckedStringType()
+    elif node.value == "boolsk":
+        return CheckedBoolType()
     else:
         raise Exception(f"unknown type id {node.value}")
 
@@ -1074,6 +1094,13 @@ def check_binary(node: ParsedBinary, local_table: LocalTable) -> CheckedBinary:
             )
     elif node.operation == ParsedBinaryOperations.EQ:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
+            return CheckedBinary(
+                checked_left,
+                checked_right,
+                CheckedBinaryOperations.EQ,
+                CheckedBoolType(),
+            )
+        elif type_combo == (CheckedTypeTypes.Char, CheckedTypeTypes.Char):
             return CheckedBinary(
                 checked_left,
                 checked_right,

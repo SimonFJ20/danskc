@@ -31,11 +31,6 @@ void array_destroy(Array* array);
 long array_push(Array* array, size_t value);
 size_t array_at(Array* array, int64_t i);
 
-long tekst_laengde(const String* string);
-Array* tom_tegnliste();
-void tegnliste_tilfoej(Array* array, char value);
-String* tegnliste_til_tekst(Array* array);
-
 long skriv_heltal(long value);
 long skriv_decimal(double value);
 long skriv_boolsk(bool value);
@@ -43,5 +38,13 @@ long skriv_tegn(char value);
 long skriv(String* value);
 long skriv_linje(String* value);
 String* laes_fil(String* filename);
+
+long fejl(const String* message);
+long tekst_laengde(const String* string);
+long laengde_af_tegnliste(const Array* array);
+Array* tom_tegnliste();
+void tegnliste_tilfoej(Array* array, char value);
+String* tegnliste_til_tekst(Array* array);
+long tekst_til_heltal(String* value);
 
 #endif

@@ -4,6 +4,7 @@ from checker import (
     CheckedAssignOperations,
     CheckedBinary,
     CheckedBinaryOperations,
+    CheckedBool,
     CheckedBreak,
     CheckedCall,
     CheckedChar,
@@ -186,7 +187,7 @@ def generate_expr(node: CheckedExpr, local_table: LocalTable) -> str:
     elif node.expr_type() == CheckedExprTypes.String:
         return f"string_from({cast(CheckedString, node).value})"
     elif node.expr_type() == CheckedExprTypes.Bool:
-        raise NotImplementedError()
+        return "true" if cast(CheckedBool, node).value else "false"
     elif node.expr_type() == CheckedExprTypes.Array:
         return f"array_new()"
     elif node.expr_type() == CheckedExprTypes.Object:
