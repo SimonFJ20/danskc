@@ -86,6 +86,8 @@ def tokenize(text: str) -> List[Token]:
             i += 1
         elif chars_match(text[i:], "KOMMENTER"):
             while i < len(text) and not chars_match(text[i:], "FÆRDIG"):
+                if text[i] == "\n":
+                    line += 1
                 i += 1
             i += len("FÆRDIG")
         elif chars_match(text[i:], "ikke"):
@@ -124,10 +126,6 @@ def tokenize(text: str) -> List[Token]:
             l = len("funktion")
             tokens.append(Token(TokenTypes.KwFunction, text[i : i + l], line))
             i += l
-        elif chars_match(text[i:], "tilbagesend"):
-            raise Exception(
-                f'advarsel: ordet "tilbagesend" er kriminelt, brug "returner" istedet, på linje {line}'
-            )
         elif chars_match(text[i:], "returner"):
             l = len("returner")
             tokens.append(Token(TokenTypes.KwReturn, text[i : i + l], line))

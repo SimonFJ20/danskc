@@ -838,7 +838,7 @@ def check_expr_statement(
 def check_let(node: ParsedLet, local_table: LocalTable) -> CheckedLet:
     value_type = check_type(node.value_type)
     local_table.define(node.subject, value_type)
-    value = check_expr(node.value, local_table)
+    value = check_expr(node.value, local_table, value_type)
     return CheckedLet(node.subject, value_type, value)
 
 
@@ -907,7 +907,11 @@ def types_compatible(a: CheckedType, b: CheckedType) -> bool:
         )
 
 
-def check_expr(node: ParsedExpr, local_table: LocalTable) -> CheckedExpr:
+def check_expr(
+    node: ParsedExpr,
+    local_table: LocalTable,
+    resulting_type: Optional[CheckedType] = None,
+) -> CheckedExpr:
     if node.expr_type() == ParsedExprTypes.Id:
         return check_id(cast(ParsedId, node), local_table)
     elif node.expr_type() == ParsedExprTypes.Int:
@@ -921,7 +925,7 @@ def check_expr(node: ParsedExpr, local_table: LocalTable) -> CheckedExpr:
     elif node.expr_type() == ParsedExprTypes.Bool:
         return CheckedBool(cast(ParsedBool, node).value)
     elif node.expr_type() == ParsedExprTypes.Array:
-        return check_array(cast(ParsedArray, node), local_table)
+        return check_array(cast(ParsedArray, node), local_table, resulting_type)
     elif node.expr_type() == ParsedExprTypes.Object:
         return check_object(cast(ParsedObject, node), local_table)
     elif node.expr_type() == ParsedExprTypes.Accessing:
@@ -947,13 +951,34 @@ def check_id(node: ParsedId, local_table: LocalTable) -> CheckedId:
     return CheckedId(symbol.subject, symbol.symbol_id, symbol.value_type)
 
 
-def check_array(node: ParsedArray, local_table: LocalTable) -> CheckedArray:
+def check_array(
+    node: ParsedArray,
+    local_table: LocalTable,
+    resulting_type: Optional[CheckedType] = None,
+) -> CheckedArray:
     checked_values = [check_expr(value, local_table) for value in node.values]
-    if len(checked_values) == 0:
-        raise Exception("empty arrays are unimplemented")
-    return CheckedArray(
-        checked_values, CheckedArrayType(checked_values[0].expr_value_type())
-    )
+    is_same = True
+    for i in range(len(checked_values) - 1):
+        if types_compatible(
+            checked_values[i].expr_value_type(), checked_values[i].expr_value_type()
+        ):
+            is_same = False
+            break
+    if not is_same:
+        raise Exception("arrays elements are not of the same type")
+    if resulting_type:
+        if len(checked_values) and not types_compatible(
+            resulting_type, checked_values[0].expr_value_type()
+        ):
+            raise Exception("incompatible types")
+        else:
+            return CheckedArray([], CheckedArrayType(resulting_type))
+    elif len(checked_values) == 0:
+        raise Exception("cannot deduce type of array elements")
+    else:
+        return CheckedArray(
+            checked_values, CheckedArrayType(checked_values[0].expr_value_type())
+        )
 
 
 def check_object(node: ParsedObject, local_table: LocalTable) -> CheckedObject:

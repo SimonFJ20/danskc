@@ -559,6 +559,8 @@ class Parser:
                 elsecase = self.parse_if()
                 return ParsedIf(condition, truthy, [elsecase])
             else:
+                if self.current_type() == TokenTypes.KwDo:
+                    self.step()
                 falsy = self.parse_statements()
                 self.expect(TokenTypes.KwEnd)
                 self.step()

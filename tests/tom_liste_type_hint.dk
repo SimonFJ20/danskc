@@ -1,0 +1,11 @@
+
+KOMMENTER
+
+$? = 0
+
+FÆRDIG
+
+funktion begynd() -> heltal
+    lad a: heltal[] = []
+    returner 0
+slut

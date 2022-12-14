@@ -1,0 +1,40 @@
+
+KOMMENTER
+
+a er 5
+b * c er 200
+must be reached
+
+$? = 0
+
+FÆRDIG
+
+funktion begynd() -> heltal
+    
+    lad a: heltal = 5
+    
+    hvis a == 4 så
+        skriv_linje("a er 4")
+    ellers hvis a == 5 så
+        skriv_linje("a er 5")
+    ellers
+        skriv_linje("a er hverken 4 eller 5")
+    slut
+
+    lad b: heltal = 10
+    lad c: heltal = 20
+    hvis b == 0 så
+        skriv_linje("b er 0")
+
+    KOMMENTAR 'så'-et kan erstattes med et ';', men skal være der,
+    KOMMENTAR ellers 'merger' den hvis-statement'et indeni med i else-blokken
+    ellers så
+        hvis c == 20 så
+            skriv_linje("b * c er 200")
+        ellers
+            skriv_linje("b * c er ikke 200")
+        slut
+    slut
+
+    skriv_linje("must be reached")
+slut

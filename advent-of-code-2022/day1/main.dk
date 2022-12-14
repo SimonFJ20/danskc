@@ -11,7 +11,7 @@ funktion begynd() -> heltal
     lad input: tekst = læs_fil("advent-of-code-2022/day1/input.txt")
     lad største: heltal = 0
     lad akkumulator: heltal = 0
-    lad buffer: tegn[] = tom_tegnliste()
+    lad buffer: tegn[] = []
     lad i: heltal = 0
     lad sidste_var_tom: boolsk = falsk
     mens i < tekst_længde(input) så

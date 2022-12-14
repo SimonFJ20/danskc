@@ -1,0 +1,10 @@
+
+KOMMENTER
+
+$? = 125
+
+FÆRDIG
+
+funktion begynd() -> heltal
+    returner 125
+slut
