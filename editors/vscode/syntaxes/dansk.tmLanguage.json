@@ -1,0 +1,128 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "dansk",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#numbers"
+		},
+		{
+			"include": "#entity"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#constants"
+		},
+		{
+			"include": "#types"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#operator"
+		},
+		{
+			"include": "#punctuation"
+		},
+		{
+			"include": "#variable"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.dansk",
+					"begin": "KOMMENTAR",
+					"end": "\\n"
+				},
+				{
+					"name": "comment.block.dansk",
+					"begin": "KOMMENTER",
+					"end": "FÆRDIG"
+				}
+			]
+		},
+		"numbers": {
+			"patterns": [{
+				"name": "constant.numeric.dansk",
+				"match": "\\b0|[1-9][0-9]*(\\.[0-9]+)?\\b"
+			}]
+		},
+		"entity": {
+            "patterns": [
+                {
+                    "match": "(?!(for|if|switch|while))(?>[a-zA-Z_](\\w+)?)(?=\\()",
+                    "name": "entity.name.function.dansk"
+                }
+            ]
+        },
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.dansk",
+				"match": "\\b(ikke|lad|hvis|så|ellers|mens|bryd|slut|funktion|returner|og|eller)\\b"
+			}]
+		},
+		"constants": {
+			"patterns": [{
+				"name": "constant.language.dansk",
+				"match": "\\b(falsk|sand)\\b"
+			}]
+		},
+		"types": {
+			"patterns": [{
+				"name": "storage.type.dansk",
+				"match": "\\b(heltal|decimal|tegn|tekst|boolsk)\\b"
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double.dansk",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.dansk",
+					"match": "\\\\."
+				}
+			]
+		},
+		"operator": {
+            "patterns": [
+                {
+                    "match": "\\+\\+|--|->|\\+=|-=|!=|<=|>=|==|<|>|=|%|/|-|\\+|\\.(?!\\.)|->",
+                    "name": "keyword.operator.dansk"
+                }
+            ]
+        },
+		"punctuation": {
+            "patterns": [
+                {
+                    "match": ";",
+                    "name": "punctuation.terminator.statement.dansk"
+                },
+                {
+                    "match": ",",
+                    "name": "punctuation.separator.delimiter.dansk"
+                }
+            ]
+        },
+		"variable": {
+            "patterns": [
+                {
+                    "match": "(?>[a-zA-Z_](\\w+)?)\\s?(?=\\=)",
+                    "name": "variable.other.assignment.dansk"
+                },
+                {
+                    "match": "(?>[a-zA-Z_](\\w+)?)(?=\\[)",
+                    "name": "variable.other.access.dansk"
+                }
+            ]
+        }
+	},
+	"scopeName": "source.dk"
+}

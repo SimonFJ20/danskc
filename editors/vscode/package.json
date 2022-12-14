@@ -1,0 +1,25 @@
+{
+  "name": "dansk",
+  "displayName": "Dansk",
+  "description": "Programmeringssprog på dansk",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "dansk",
+      "aliases": ["dansk", "dansk"],
+      "extensions": ["dk"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "dansk",
+      "scopeName": "source.dk",
+      "path": "./syntaxes/dansk.tmLanguage.json"
+    }]
+  }
+}
