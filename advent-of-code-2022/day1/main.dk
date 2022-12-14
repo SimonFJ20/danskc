@@ -33,10 +33,10 @@ funktion begynd() -> heltal
         ellers
             fejl("burde ikke kunne ske")
         slut
-        i = i + 1
+        i += 1
     slut
     skriv("svaret er ")
     skriv_heltal(største)
     skriv_linje("")
-    tilbagesend 0
+    returner 0
 slut

@@ -458,8 +458,8 @@ class Parser:
         while not self.done() and self.current_type() == TokenTypes.Semicolon:
             self.step()
         while not self.done() and self.current_type() not in [
-            TokenTypes.KwSlut,
-            TokenTypes.KwEllers,
+            TokenTypes.KwEnd,
+            TokenTypes.KwElse,
         ]:
             statements.append(self.parse_statement())
             while not self.done() and self.current_type() == TokenTypes.Semicolon:
@@ -469,17 +469,17 @@ class Parser:
     def parse_statement(self) -> ParsedStatement:
         if self.done():
             return self.parse_expr_statement()
-        elif self.current_type() == TokenTypes.KwFunktion:
+        elif self.current_type() == TokenTypes.KwFunction:
             return self.parse_func()
-        elif self.current_type() == TokenTypes.KwTilbagesend:
+        elif self.current_type() == TokenTypes.KwReturn:
             return self.parse_return()
-        elif self.current_type() == TokenTypes.KwMens:
+        elif self.current_type() == TokenTypes.KwWhile:
             return self.parse_while()
-        elif self.current_type() == TokenTypes.KwBryd:
+        elif self.current_type() == TokenTypes.KwBreak:
             return self.parse_break()
-        elif self.current_type() == TokenTypes.KwHvis:
+        elif self.current_type() == TokenTypes.KwIf:
             return self.parse_if()
-        elif self.current_type() == TokenTypes.KwLad:
+        elif self.current_type() == TokenTypes.KwLet:
             return self.parse_let()
         else:
             return self.parse_expr_statement()
@@ -510,7 +510,7 @@ class Parser:
         self.step()
         return_type = self.parse_type()
         body = self.parse_statements()
-        self.expect(TokenTypes.KwSlut)
+        self.expect(TokenTypes.KwEnd)
         self.step()
         return ParsedFunc(subject, params, return_type, body)
 
@@ -518,13 +518,13 @@ class Parser:
         self.step()
         if not self.done() and self.current_type() in [
             TokenTypes.Semicolon,
-            TokenTypes.KwFunktion,
-            TokenTypes.KwTilbagesend,
-            TokenTypes.KwMens,
-            TokenTypes.KwBryd,
-            TokenTypes.KwHvis,
-            TokenTypes.KwLad,
-            TokenTypes.KwSlut,
+            TokenTypes.KwFunction,
+            TokenTypes.KwReturn,
+            TokenTypes.KwWhile,
+            TokenTypes.KwBreak,
+            TokenTypes.KwIf,
+            TokenTypes.KwLet,
+            TokenTypes.KwEnd,
         ]:
             return ParsedReturn(None)
         else:
@@ -533,10 +533,10 @@ class Parser:
     def parse_while(self) -> ParsedWhile:
         self.step()
         condition = self.parse_expr()
-        self.expect(TokenTypes.KwSå)
+        self.expect(TokenTypes.KwDo)
         self.step()
         body = self.parse_statements()
-        self.expect(TokenTypes.KwSlut)
+        self.expect(TokenTypes.KwEnd)
         self.step()
         return ParsedWhile(condition, body)
 
@@ -547,20 +547,20 @@ class Parser:
     def parse_if(self) -> ParsedIf:
         self.step()
         condition = self.parse_expr()
-        self.expect(TokenTypes.KwSå)
+        self.expect(TokenTypes.KwDo)
         self.step()
         truthy = self.parse_statements()
-        if self.current_type() == TokenTypes.KwSlut:
+        if self.current_type() == TokenTypes.KwEnd:
             self.step()
             return ParsedIf(condition, truthy, [])
-        elif self.current_type() == TokenTypes.KwEllers:
+        elif self.current_type() == TokenTypes.KwElse:
             self.step()
-            if self.current_type() == TokenTypes.KwHvis:
+            if self.current_type() == TokenTypes.KwIf:
                 elsecase = self.parse_if()
                 return ParsedIf(condition, truthy, [elsecase])
             else:
                 falsy = self.parse_statements()
-                self.expect(TokenTypes.KwSlut)
+                self.expect(TokenTypes.KwEnd)
                 self.step()
                 return ParsedIf(condition, truthy, falsy)
         else:
@@ -712,9 +712,9 @@ class Parser:
             return self.stepAndReturn(ParsedBinaryOperations.GT)
         elif self.current_type() == TokenTypes.GTE:
             return self.stepAndReturn(ParsedBinaryOperations.GTE)
-        elif self.current_type() == TokenTypes.KwOg:
+        elif self.current_type() == TokenTypes.KwAnd:
             return self.stepAndReturn(ParsedBinaryOperations.And)
-        elif self.current_type() == TokenTypes.KwEller:
+        elif self.current_type() == TokenTypes.KwOr:
             return self.stepAndReturn(ParsedBinaryOperations.Or)
         else:
             return None
@@ -746,7 +746,7 @@ class Parser:
             raise Exception(f"unexhaustive match, got {op}")
 
     def parse_unary(self) -> ParsedExpr:
-        if not self.done() and self.current_type() == TokenTypes.KwIkke:
+        if not self.done() and self.current_type() == TokenTypes.KwNot:
             self.step()
             return ParsedUnary(self.parse_unary(), ParsedUnaryOperations.Not)
         else:
@@ -814,9 +814,9 @@ class Parser:
             return self.stepAndReturn(ParsedChar(self.current().value))
         elif self.current_type() == TokenTypes.String:
             return self.stepAndReturn(ParsedString(self.current().value))
-        elif self.current_type() == TokenTypes.KwFalsk:
+        elif self.current_type() == TokenTypes.KwFalse:
             return self.stepAndReturn(ParsedBool(False))
-        elif self.current_type() == TokenTypes.KwSand:
+        elif self.current_type() == TokenTypes.KwTrue:
             return self.stepAndReturn(ParsedBool(True))
         else:
             raise Exception(f"expected value, got {self.current()}")

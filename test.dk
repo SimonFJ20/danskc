@@ -23,10 +23,10 @@ funktion begynd() -> heltal
 
 
     mens a <= 4 så
-        tilbagesend
+        returner
     slut
 
 
 
-    tilbagesend 0
+    returner 0
 slut

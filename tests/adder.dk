@@ -1,8 +1,8 @@
 
 funktion adder(a: heltal, b: heltal) -> heltal
-    tilbagesend a + b
+    returner a + b
 slut
 
 funktion begynd() -> heltal
-    tilbagesend adder(1, 2)
+    returner adder(1, 2)
 slut

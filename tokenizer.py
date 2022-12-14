@@ -9,20 +9,20 @@ class TokenTypes(Enum):
     Float = auto()
     Char = auto()
     String = auto()
-    KwIkke = auto()
-    KwLad = auto()
-    KwHvis = auto()
-    KwSå = auto()
-    KwEllers = auto()
-    KwMens = auto()
-    KwBryd = auto()
-    KwSlut = auto()
-    KwFunktion = auto()
-    KwTilbagesend = auto()
-    KwFalsk = auto()
-    KwSand = auto()
-    KwOg = auto()
-    KwEller = auto()
+    KwNot = auto()
+    KwLet = auto()
+    KwIf = auto()
+    KwDo = auto()
+    KwElse = auto()
+    KwWhile = auto()
+    KwBreak = auto()
+    KwEnd = auto()
+    KwFunction = auto()
+    KwReturn = auto()
+    KwFalse = auto()
+    KwTrue = auto()
+    KwAnd = auto()
+    KwOr = auto()
     LParen = auto()
     RParen = auto()
     LBrace = auto()
@@ -90,59 +90,63 @@ def tokenize(text: str) -> List[Token]:
             i += len("FÆRDIG")
         elif chars_match(text[i:], "ikke"):
             l = len("ikke")
-            tokens.append(Token(TokenTypes.KwIkke, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwNot, text[i : i + l], line))
             i += len("ikke")
         elif chars_match(text[i:], "lad"):
             l = len("lad")
-            tokens.append(Token(TokenTypes.KwLad, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwLet, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "hvis"):
             l = len("hvis")
-            tokens.append(Token(TokenTypes.KwHvis, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwIf, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "så"):
             l = len("så")
-            tokens.append(Token(TokenTypes.KwSå, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwDo, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "ellers"):
             l = len("ellers")
-            tokens.append(Token(TokenTypes.KwEllers, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwElse, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "mens"):
             l = len("mens")
-            tokens.append(Token(TokenTypes.KwMens, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwWhile, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "bryd"):
             l = len("bryd")
-            tokens.append(Token(TokenTypes.KwBryd, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwBreak, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "slut"):
             l = len("slut")
-            tokens.append(Token(TokenTypes.KwSlut, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwEnd, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "funktion"):
             l = len("funktion")
-            tokens.append(Token(TokenTypes.KwFunktion, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwFunction, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "tilbagesend"):
-            l = len("tilbagesend")
-            tokens.append(Token(TokenTypes.KwTilbagesend, text[i : i + l], line))
+            raise Exception(
+                f'advarsel: ordet "tilbagesend" er kriminelt, brug "returner" istedet, på linje {line}'
+            )
+        elif chars_match(text[i:], "returner"):
+            l = len("returner")
+            tokens.append(Token(TokenTypes.KwReturn, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "falsk"):
             l = len("falsk")
-            tokens.append(Token(TokenTypes.KwFalsk, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwFalse, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "sand"):
             l = len("sand")
-            tokens.append(Token(TokenTypes.KwSand, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwTrue, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "og"):
             l = len("og")
-            tokens.append(Token(TokenTypes.KwOg, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwAnd, text[i : i + l], line))
             i += l
         elif chars_match(text[i:], "eller"):
             l = len("eller")
-            tokens.append(Token(TokenTypes.KwEller, text[i : i + l], line))
+            tokens.append(Token(TokenTypes.KwOr, text[i : i + l], line))
             i += l
         elif text[i] in ID_CHARS:
             value = text[i]

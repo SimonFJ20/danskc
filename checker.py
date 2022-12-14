@@ -1,6 +1,6 @@
 from __future__ import annotations
 from enum import Enum, auto
-from typing import Dict, List, Optional, Tuple, cast
+from typing import Dict, List, NoReturn, Optional, Tuple, cast
 from parser_ import (
     ParsedArrayType,
     ParsedBreak,
@@ -1049,185 +1049,120 @@ def check_unary(node: ParsedUnary, local_table: LocalTable) -> CheckedUnary:
 
 
 def check_binary(node: ParsedBinary, local_table: LocalTable) -> CheckedBinary:
-    checked_left = check_expr(node.left, local_table)
-    checked_right = check_expr(node.right, local_table)
+    Ops = CheckedBinaryOperations
+    left = check_expr(node.left, local_table)
+    right = check_expr(node.right, local_table)
     type_combo = (
-        checked_left.expr_value_type().type_type(),
-        checked_right.expr_value_type().type_type(),
+        left.expr_value_type().type_type(),
+        right.expr_value_type().type_type(),
     )
+
+    def fail(
+        operation: ParsedBinaryOperations,
+        type_combo: Tuple[CheckedTypeTypes, CheckedTypeTypes],
+    ) -> NoReturn:
+        raise Exception(
+            f"unsupported types for binary {operation} operation {type_combo}"
+        )
+
     if node.operation == ParsedBinaryOperations.Add:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
-            return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.Add,
-                CheckedIntType(),
-            )
+            return CheckedBinary(left, right, Ops.Add, CheckedIntType())
         else:
-            print(f"types = {type_combo}")
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.Subtract:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
-            return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.Subtract,
-                CheckedIntType(),
-            )
+            return CheckedBinary(left, right, Ops.Subtract, CheckedIntType())
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.Multiply:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
-            return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.Multiply,
-                CheckedIntType(),
-            )
+            return CheckedBinary(left, right, Ops.Multiply, CheckedIntType())
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.EQ:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
-            return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.EQ,
-                CheckedBoolType(),
-            )
+            return CheckedBinary(left, right, Ops.EQ, CheckedBoolType())
         elif type_combo == (CheckedTypeTypes.Char, CheckedTypeTypes.Char):
-            return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.EQ,
-                CheckedBoolType(),
-            )
+            return CheckedBinary(left, right, Ops.EQ, CheckedBoolType())
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.NE:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
-            return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.NE,
-                CheckedBoolType(),
-            )
+            return CheckedBinary(left, right, Ops.NE, CheckedBoolType())
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.LT:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
-            return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.LT,
-                CheckedBoolType(),
-            )
+            return CheckedBinary(left, right, Ops.LT, CheckedBoolType())
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.GT:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
-            return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.GT,
-                CheckedBoolType(),
-            )
+            return CheckedBinary(left, right, Ops.GT, CheckedBoolType())
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.LTE:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
-            return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.LTE,
-                CheckedBoolType(),
-            )
+            return CheckedBinary(left, right, Ops.LTE, CheckedBoolType())
         elif type_combo == (CheckedTypeTypes.Char, CheckedTypeTypes.Char):
-            return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.LTE,
-                CheckedBoolType(),
-            )
+            return CheckedBinary(left, right, Ops.LTE, CheckedBoolType())
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.GTE:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.GTE,
+                left,
+                right,
+                Ops.GTE,
                 CheckedBoolType(),
             )
         elif type_combo == (CheckedTypeTypes.Char, CheckedTypeTypes.Char):
             return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.GTE,
+                left,
+                right,
+                Ops.GTE,
                 CheckedBoolType(),
             )
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.GTE:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.GTE,
+                left,
+                right,
+                Ops.GTE,
                 CheckedBoolType(),
             )
         elif type_combo == (CheckedTypeTypes.Char, CheckedTypeTypes.Char):
             return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.GTE,
+                left,
+                right,
+                Ops.GTE,
                 CheckedBoolType(),
             )
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.And:
         if type_combo == (CheckedTypeTypes.Bool, CheckedTypeTypes.Bool):
             return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.And,
+                left,
+                right,
+                Ops.And,
                 CheckedBoolType(),
             )
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.Or:
         if type_combo == (CheckedTypeTypes.Bool, CheckedTypeTypes.Bool):
             return CheckedBinary(
-                checked_left,
-                checked_right,
-                CheckedBinaryOperations.Or,
+                left,
+                right,
+                Ops.Or,
                 CheckedBoolType(),
             )
         else:
-            raise Exception(
-                f"unsupported types for binary {node.operation} operation {type_combo}"
-            )
+            fail(node.operation, type_combo)
     else:
         raise Exception("unsupported binary operation")
 
