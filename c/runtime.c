@@ -103,6 +103,15 @@ size_t array_at(Array* array, int64_t i)
     }
 }
 
+size_t array_set(Array* array, int64_t i, size_t value)
+{
+    if ((size_t)i >= array->length) {
+        fprintf(stderr, "terminator: index out of bounds\n");
+        exit(1);
+    }
+    return array->buffer[i] = value;
+}
+
 long skriv_heltal(long value)
 {
     printf("%ld", value);
@@ -165,14 +174,13 @@ long fejl(const String* message)
 
 long tekst_laengde(const String* string) { return string->length; }
 
-long laengde_af_tegnliste(const Array* array) { return array->length; }
+long tegnliste_laengde(const Array* array) { return array->length; }
 
-Array* tom_tegnliste() { return array_new(); }
+long heltalliste_laengde(const Array* array) { return array->length; }
 
-void tegnliste_tilfoej(Array* array, char value)
-{
-    array_push(array, value);
-}
+void heltalliste_tilfoej(Array* array, long value) { array_push(array, value); }
+
+void tegnliste_tilfoej(Array* array, char value) { array_push(array, value); }
 
 String* tegnliste_til_tekst(Array* array)
 {

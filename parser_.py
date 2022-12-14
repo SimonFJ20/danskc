@@ -43,7 +43,9 @@ class ParsedExprStatement(ParsedStatement):
 
 
 class ParsedLet(ParsedStatement):
-    def __init__(self, subject: str, value_type: ParsedType, value: ParsedExpr) -> None:
+    def __init__(
+        self, subject: str, value_type: Optional[ParsedType], value: ParsedExpr
+    ) -> None:
         super().__init__()
         self.subject = subject
         self.value_type = value_type
@@ -53,7 +55,7 @@ class ParsedLet(ParsedStatement):
         return ParsedStatementTypes.Let
 
     def __str__(self) -> str:
-        return f"Let {{ subject: {self.subject}, value: {self.value} }}"
+        return f"Let {{ subject: {self.subject}, value_type: {self.value_type}, value: {self.value} }}"
 
 
 class ParsedIf(ParsedStatement):
@@ -389,6 +391,32 @@ class ParsedBinaryOperations(Enum):
     And = auto()
     Or = auto()
 
+    def __str__(self) -> str:
+        if self == ParsedBinaryOperations.Add:
+            return "Add"
+        elif self == ParsedBinaryOperations.Subtract:
+            return "Subtract"
+        elif self == ParsedBinaryOperations.Multiply:
+            return "Multiply"
+        elif self == ParsedBinaryOperations.EQ:
+            return "EQ"
+        elif self == ParsedBinaryOperations.NE:
+            return "NE"
+        elif self == ParsedBinaryOperations.LT:
+            return "LT"
+        elif self == ParsedBinaryOperations.LTE:
+            return "LTE"
+        elif self == ParsedBinaryOperations.GT:
+            return "GT"
+        elif self == ParsedBinaryOperations.GTE:
+            return "GTE"
+        elif self == ParsedBinaryOperations.And:
+            return "And"
+        elif self == ParsedBinaryOperations.Or:
+            return "Or"
+        else:
+            raise NotImplementedError()
+
 
 class ParsedBinary(ParsedExpr):
     def __init__(
@@ -573,9 +601,10 @@ class Parser:
         self.expect(TokenTypes.Id)
         subject = self.current().value
         self.step()
-        self.expect(TokenTypes.Colon)
-        self.step()
-        value_type = self.parse_type()
+        value_type: Optional[ParsedType] = None
+        if self.current_type() == TokenTypes.Colon:
+            self.step()
+            value_type = self.parse_type()
         self.expect(TokenTypes.Assign)
         self.step()
         value = self.parse_expr()
@@ -650,17 +679,17 @@ class Parser:
         elif self.current_type() == TokenTypes.Assign:
             self.step()
             return ParsedAssign(
-                subject, self.parse_assignment(), ParsedAssignOperations.Assign
+                subject, self.parse_expr(), ParsedAssignOperations.Assign
             )
         elif self.current_type() == TokenTypes.PlusAssign:
             self.step()
             return ParsedAssign(
-                subject, self.parse_assignment(), ParsedAssignOperations.Increment
+                subject, self.parse_expr(), ParsedAssignOperations.Increment
             )
         elif self.current_type() == TokenTypes.MinusAssign:
             self.step()
             return ParsedAssign(
-                subject, self.parse_assignment(), ParsedAssignOperations.Decrement
+                subject, self.parse_expr(), ParsedAssignOperations.Decrement
             )
         else:
             return subject

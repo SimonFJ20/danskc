@@ -1,30 +1,70 @@
 
-KOMMENTER
+funktion tegn_er_tal(t: tegn) -> boolsk
+    returner t >= '0' og t <= '9'
+slut
 
-13-12-2022
-$ python3 danskc.py advent-of-code-2022/day1/main.dk --outfile c/temp.c && gcc c/temp.c c/runtime.c -std=c17 -Wall -Wextra && ./a.out
-svaret er 66719
+funktion analyser_tal(input: tekst, i: heltal[]) -> heltal
+    lad tal_tegn: tegn[] = [input[i[0]]]
+    i[0] += 1
+    mens i[0] < tekst_længde(input) og tegn_er_tal(input[i[0]]) så
+        tegnliste_tilføj(tal_tegn, input[i[0]])
+        i[0] += 1
+    slut
+    lad tal_tekst: tekst = tegnliste_til_tekst(tal_tegn)
+    lad tal: heltal = tekst_til_heltal(tal_tekst)
+    returner tal
+slut
 
-FÆRDIG
-
-funktion begynd() -> heltal
-    lad input: tekst = læs_fil("advent-of-code-2022/day1/input.txt")
-    lad største: heltal = 0
-    lad akkumulator: heltal = 0
-    lad buffer: tegn[] = []
-    lad i: heltal = 0
+funktion grupper_tal(input: tekst) -> heltal[]
+    lad i: heltal[] = [0]
+    lad grupper: heltal[] = []
+    lad nuværende_gruppe: heltal[] = []
     lad sidste_var_tom: boolsk = falsk
+    mens i[0] < tekst_længde(input) så
+        hvis tegn_er_tal(input[i[0]]) så
+            hvis sidste_var_tom så
+                lad sum: heltal = 0
+                lad j: heltal = 0
+                mens j < heltalliste_længde(nuværende_gruppe) så
+                    sum += nuværende_gruppe[j]
+                    j += 1
+                slut
+                heltalliste_tilføj(grupper, sum)
+                nuværende_gruppe = []
+                sidste_var_tom = falsk
+            slut
+            heltalliste_tilføj(nuværende_gruppe, analyser_tal(input, i))
+            hvis i[0] < tekst_længde(input) og input[i[0]] == '\n' så
+                i[0] += 1
+            slut
+        ellers hvis input[i[0]] == '\n' så
+            sidste_var_tom = sand
+            i[0] += 1
+        ellers
+            fejl("uhåndterbart tegn")
+        slut
+    slut
+    returner grupper
+slut
+
+funktion most_calories() -> heltal
+    lad input = læs_fil("advent-of-code-2022/day1/input.txt")
+    lad største = 0
+    lad akkumulator = 0
+    lad buffer: tegn[] = []
+    lad i = 0
+    lad sidste_var_tom = falsk
     mens i < tekst_længde(input) så
-        lad c: tegn = input[i]
+        lad c = input[i]
         hvis c == '\n' og sidste_var_tom så
             hvis akkumulator > største så
                 største = akkumulator
             slut
             akkumulator = 0
         ellers hvis c == '\n' så
-            lad tal_tekst: tekst = tegnliste_til_tekst(buffer)
-            buffer = tom_tegnliste()
-            lad tal: heltal = tekst_til_heltal(tal_tekst)
+            lad tal_tekst = tegnliste_til_tekst(buffer)
+            buffer = []
+            lad tal = tekst_til_heltal(tal_tekst)
             akkumulator += tal
             sidste_var_tom = sand
         ellers hvis c >= '0' og c <= '9' så
@@ -35,8 +75,15 @@ funktion begynd() -> heltal
         slut
         i += 1
     slut
-    skriv("svaret er ")
-    skriv_heltal(største)
-    skriv_linje("")
+    returner største
+slut
+
+funktion begynd() -> heltal
+    lad input = læs_fil("advent-of-code-2022/day1/input.txt")
+    lad grupper = grupper_tal(input)
+    skriv("How many total Calories is that Elf carrying?\n> ")
+    skriv_heltal(most_calories())
+    skriv("\nHow many Calories are those Elves carrying in total?\n> ")
+
     returner 0
 slut

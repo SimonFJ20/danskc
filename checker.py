@@ -158,12 +158,35 @@ class CheckedTypeTypes(Enum):
     Object = auto()
     Func = auto()
 
+    def __str__(self) -> str:
+        if self == CheckedTypeTypes.Int:
+            return "Int"
+        elif self == CheckedTypeTypes.Float:
+            return "Float"
+        elif self == CheckedTypeTypes.Char:
+            return "Char"
+        elif self == CheckedTypeTypes.String:
+            return "String"
+        elif self == CheckedTypeTypes.Bool:
+            return "Bool"
+        elif self == CheckedTypeTypes.Array:
+            return "Array"
+        elif self == CheckedTypeTypes.Object:
+            return "Object"
+        elif self == CheckedTypeTypes.Func:
+            return "Func"
+        else:
+            raise Exception()
+
 
 class CheckedType:
     def __init__(self) -> None:
         pass
 
     def type_type(self) -> CheckedTypeTypes:
+        raise NotImplementedError()
+
+    def __str__(self) -> str:
         raise NotImplementedError()
 
 
@@ -174,6 +197,9 @@ class CheckedIntType(CheckedType):
     def type_type(self) -> CheckedTypeTypes:
         return CheckedTypeTypes.Int
 
+    def __str__(self) -> str:
+        return f"Int"
+
 
 class CheckedFloatType(CheckedType):
     def __init__(self) -> None:
@@ -181,6 +207,9 @@ class CheckedFloatType(CheckedType):
 
     def type_type(self) -> CheckedTypeTypes:
         return CheckedTypeTypes.Float
+
+    def __str__(self) -> str:
+        return f"Float"
 
 
 class CheckedCharType(CheckedType):
@@ -190,6 +219,9 @@ class CheckedCharType(CheckedType):
     def type_type(self) -> CheckedTypeTypes:
         return CheckedTypeTypes.Char
 
+    def __str__(self) -> str:
+        return f"Char"
+
 
 class CheckedStringType(CheckedType):
     def __init__(self) -> None:
@@ -198,6 +230,9 @@ class CheckedStringType(CheckedType):
     def type_type(self) -> CheckedTypeTypes:
         return CheckedTypeTypes.String
 
+    def __str__(self) -> str:
+        return f"String"
+
 
 class CheckedBoolType(CheckedType):
     def __init__(self) -> None:
@@ -205,6 +240,9 @@ class CheckedBoolType(CheckedType):
 
     def type_type(self) -> CheckedTypeTypes:
         return CheckedTypeTypes.Bool
+
+    def __str__(self) -> str:
+        return f"Bool"
 
 
 class CheckedArrayType(CheckedType):
@@ -215,6 +253,9 @@ class CheckedArrayType(CheckedType):
     def type_type(self) -> CheckedTypeTypes:
         return CheckedTypeTypes.Array
 
+    def __str__(self) -> str:
+        return f"{self.inner_type}[]"
+
 
 class CheckedObjectType(CheckedType):
     def __init__(self, fields: List[CheckedParam]) -> None:
@@ -223,6 +264,9 @@ class CheckedObjectType(CheckedType):
 
     def type_type(self) -> CheckedTypeTypes:
         return CheckedTypeTypes.Object
+
+    def __str__(self) -> str:
+        raise NotImplementedError()
 
 
 class CheckedFuncType(CheckedType):
@@ -233,6 +277,9 @@ class CheckedFuncType(CheckedType):
 
     def type_type(self) -> CheckedTypeTypes:
         return CheckedTypeTypes.Func
+
+    def __str__(self) -> str:
+        raise NotImplementedError()
 
 
 def check_program(ast: List[ParsedStatement]) -> List[CheckedStatement]:
@@ -663,80 +710,34 @@ class BranchedLocalTable(LocalTable):
 
 
 def add_global_definitions(table: GlobalTable) -> None:
-    table.define(
-        "skriv_heltal",
-        CheckedFuncType([CheckedParam("værdi", CheckedIntType())], CheckedIntType()),
-    )
-    table.define(
-        "skriv_decimal",
-        CheckedFuncType([CheckedParam("værdi", CheckedFloatType())], CheckedIntType()),
-    )
-    table.define(
-        "skriv_boolsk",
-        CheckedFuncType([CheckedParam("værdi", CheckedBoolType())], CheckedIntType()),
-    )
-    table.define(
-        "skriv_tegn",
-        CheckedFuncType([CheckedParam("værdi", CheckedCharType())], CheckedIntType()),
-    )
-    table.define(
-        "skriv",
-        CheckedFuncType([CheckedParam("værdi", CheckedStringType())], CheckedIntType()),
-    )
-    table.define(
-        "skriv_linje",
-        CheckedFuncType([CheckedParam("tekst", CheckedStringType())], CheckedIntType()),
-    )
-    table.define(
-        "læs_fil",
-        CheckedFuncType(
-            [CheckedParam("tekst", CheckedStringType())], CheckedStringType()
-        ),
-    )
+    i = CheckedIntType()
+    f = CheckedFloatType()
+    c = CheckedCharType()
+    s = CheckedStringType()
+    b = CheckedBoolType()
+    A = CheckedArrayType
+    O = CheckedObjectType
+    P = CheckedParam
+    FN = CheckedFuncType
+    table.define("skriv_heltal", FN([P("værdi", i)], i))
+    table.define("skriv_decimal", FN([P("værdi", f)], i))
+    table.define("skriv_boolsk", FN([P("værdi", b)], i))
+    table.define("skriv_tegn", FN([P("værdi", c)], i))
+    table.define("skriv", FN([P("værdi", s)], i))
+    table.define("skriv_linje", FN([P("tekst", s)], i))
+    table.define("læs_fil", FN([P("tekst", s)], s))
 
-    table.define(
-        "fejl",
-        CheckedFuncType([CheckedParam("tekst", CheckedStringType())], CheckedIntType()),
-    )
-    table.define(
-        "tekst_længde",
-        CheckedFuncType([CheckedParam("tekst", CheckedStringType())], CheckedIntType()),
-    )
-    table.define(
-        "længde_af_tegnliste",
-        CheckedFuncType(
-            [CheckedParam("liste", CheckedArrayType(CheckedCharType()))],
-            CheckedIntType(),
-        ),
-    )
-    table.define(
-        "tom_tegnliste",
-        CheckedFuncType([], CheckedArrayType(CheckedCharType())),
-    )
-    table.define(
-        "tegnliste_tilføj",
-        CheckedFuncType(
-            [
-                CheckedParam("liste", CheckedArrayType(CheckedCharType())),
-                CheckedParam("værdi", CheckedCharType()),
-            ],
-            CheckedIntType(),
-        ),
-    )
-    table.define(
-        "tegnliste_til_tekst",
-        CheckedFuncType(
-            [CheckedParam("værdi", CheckedArrayType(CheckedCharType()))],
-            CheckedStringType(),
-        ),
-    )
-    table.define(
-        "tekst_til_heltal",
-        CheckedFuncType(
-            [CheckedParam("værdi", CheckedStringType())],
-            CheckedIntType(),
-        ),
-    )
+    table.define("fejl", FN([P("tekst", s)], i))
+
+    table.define("tekst_længde", FN([P("tekst", s)], i))
+    table.define("tekst_til_heltal", FN([P("værdi", s)], i))
+
+    table.define("tegnliste_længde", FN([P("liste", A(c))], i))
+    table.define("tegnliste_tilføj", FN([P("liste", A(c)), P("værdi", c)], i))
+    table.define("tegnliste_til_tekst", FN([P("liste", A(c))], s))
+
+    table.define("heltalliste_længde", FN([P("liste", A(i))], i))
+    table.define("heltalliste_tilføj", FN([P("liste", A(i)), P("værdi", i)], i))
 
 
 def check_top_level_statements(
@@ -772,13 +773,21 @@ def build_global_table(top_level: List[ParsedStatement]) -> GlobalTable:
 
 
 def check_top_level_let(node: ParsedLet, global_table: GlobalTable) -> CheckedLet:
-    value_type = check_type(node.value_type)
+    if node.value_type:
+        value_type = check_type(node.value_type)
+        value = check_top_level_expr(node.value, global_table, value_type)
+    else:
+        value = check_top_level_expr(node.value, global_table)
+        value_type = value.expr_value_type()
     global_table.define(node.subject, value_type)
-    value = check_top_level_expr(node.value, global_table)
     return CheckedLet(node.subject, value_type, value)
 
 
-def check_top_level_expr(node: ParsedExpr, global_table: GlobalTable) -> CheckedExpr:
+def check_top_level_expr(
+    node: ParsedExpr,
+    global_table: GlobalTable,
+    resulting_type: Optional[CheckedType] = None,
+) -> CheckedExpr:
     if node.expr_type() == ParsedExprTypes.Int:
         int_node = cast(ParsedInt, node)
         return CheckedInt(int_node.value)
@@ -836,9 +845,13 @@ def check_expr_statement(
 
 
 def check_let(node: ParsedLet, local_table: LocalTable) -> CheckedLet:
-    value_type = check_type(node.value_type)
+    if node.value_type:
+        value_type = check_type(node.value_type)
+        value = check_expr(node.value, local_table, value_type)
+    else:
+        value = check_expr(node.value, local_table)
+        value_type = value.expr_value_type()
     local_table.define(node.subject, value_type)
-    value = check_expr(node.value, local_table, value_type)
     return CheckedLet(node.subject, value_type, value)
 
 
@@ -896,15 +909,27 @@ def check_id_type(node: ParsedIdType) -> CheckedType:
         raise Exception(f"unknown type id {node.value}")
 
 
-def types_compatible(a: CheckedType, b: CheckedType) -> bool:
-    if a.type_type() == ParsedTypeTypes.Id and b.type_type() == ParsedTypeTypes.Id:
-        id_a = cast(ParsedIdType, a)
-        id_b = cast(ParsedIdType, b)
-        return id_a.value == id_b.value
-    else:
-        raise Exception(
-            f"incompatible/unimplemented compatibility between types {a.type_type()} and {b.type_type()}"
+def types_compatible(a: CheckedType, b: CheckedType, has_swapped=False) -> bool:
+    if a.type_type() in [
+        CheckedTypeTypes.Int,
+        CheckedTypeTypes.Float,
+        CheckedTypeTypes.Char,
+        CheckedTypeTypes.String,
+        CheckedTypeTypes.Bool,
+    ]:
+        return a.type_type() == b.type_type()
+    elif (
+        a.type_type() == CheckedTypeTypes.Array
+        and b.type_type() == CheckedTypeTypes.Array
+    ):
+        return types_compatible(
+            cast(CheckedArrayType, a).inner_type,
+            cast(CheckedArrayType, b).inner_type,
         )
+    elif not has_swapped:
+        return types_compatible(b, a, True)
+    else:
+        return False
 
 
 def check_expr(
@@ -956,6 +981,7 @@ def check_array(
     local_table: LocalTable,
     resulting_type: Optional[CheckedType] = None,
 ) -> CheckedArray:
+    resulting_type = cast(Optional[CheckedArrayType], resulting_type)
     checked_values = [check_expr(value, local_table) for value in node.values]
     is_same = True
     for i in range(len(checked_values) - 1):
@@ -968,9 +994,11 @@ def check_array(
         raise Exception("arrays elements are not of the same type")
     if resulting_type:
         if len(checked_values) and not types_compatible(
-            resulting_type, checked_values[0].expr_value_type()
+            resulting_type.inner_type, checked_values[0].expr_value_type()
         ):
-            raise Exception("incompatible types")
+            raise Exception(
+                f"incompatible types {resulting_type} and {checked_values[0].expr_value_type()}"
+            )
         else:
             return CheckedArray([], CheckedArrayType(resulting_type))
     elif len(checked_values) == 0:
@@ -1018,18 +1046,18 @@ def check_accessing(node: ParsedAccessing, local_table: LocalTable) -> CheckedAc
 def check_indexing(node: ParsedIndexing, local_table: LocalTable) -> CheckedIndexing:
     checked_subject = check_expr(node.subject, local_table)
     if checked_subject.expr_value_type().type_type() == CheckedTypeTypes.Array:
-        array_subject = cast(CheckedArray, checked_subject)
+        array_type = cast(CheckedArrayType, checked_subject.expr_value_type())
         checked_value = check_expr(node.value, local_table)
         if checked_value.expr_value_type().type_type() != CheckedTypeTypes.Int:
             raise Exception("type cannot index into array")
-        return CheckedIndexing(
-            array_subject, checked_value, array_subject.expr_value_type()
-        )
+        return CheckedIndexing(checked_subject, checked_value, array_type.inner_type)
     elif checked_subject.expr_value_type().type_type() == CheckedTypeTypes.String:
         string_subject = cast(CheckedString, checked_subject)
         checked_value = check_expr(node.value, local_table)
         if checked_value.expr_value_type().type_type() != CheckedTypeTypes.Int:
-            raise Exception("type cannot index into array")
+            raise Exception(
+                f"type {checked_value.expr_value_type().type_type()} cannot index into array"
+            )
         return CheckedIndexing(string_subject, checked_value, CheckedCharType())
     else:
         raise Exception("value is not indexable")
@@ -1044,12 +1072,17 @@ def check_call(node: ParsedCall, local_table: LocalTable) -> CheckedCall:
     if len(subject_type.params) != len(checked_args):
         raise Exception("wrong number of arguments")
     for i in range(len(subject_type.params)):
-        if (
-            checked_args[i].expr_value_type().type_type()
-            != subject_type.params[i].value_type.type_type()
+        if not types_compatible(
+            checked_args[i].expr_value_type(), subject_type.params[i].value_type
         ):
+            name = (
+                cast(CheckedId, checked_subject).value
+                if checked_subject.expr_type() == CheckedExprTypes.Id
+                else "<function>"
+            )
             raise Exception(
-                f"argument nr. {i + 1} is invalid, expected {subject_type.params[i].value_type.type_type()}, got {checked_args[i].expr_value_type().type_type()}"
+                f'argument nr. {i + 1} is invalid, when calling "{name}"'
+                f", expected {subject_type.params[i].value_type.type_type()}, got {checked_args[i].expr_value_type().type_type()}"
             )
     return CheckedCall(
         checked_subject,
@@ -1087,7 +1120,7 @@ def check_binary(node: ParsedBinary, local_table: LocalTable) -> CheckedBinary:
         type_combo: Tuple[CheckedTypeTypes, CheckedTypeTypes],
     ) -> NoReturn:
         raise Exception(
-            f"unsupported types for binary {operation} operation {type_combo}"
+            f"unsupported types for binary operation {type_combo[0]}`{operation}`{type_combo[1]}"
         )
 
     if node.operation == ParsedBinaryOperations.Add:
@@ -1200,7 +1233,7 @@ def check_assign(node: ParsedAssign, local_table: LocalTable) -> CheckedAssign:
         CheckedExprTypes.Indexing,
     ]:
         raise Exception("unsupported left-hand side of assignment")
-    value = check_expr(node.value, local_table)
+    value = check_expr(node.value, local_table, subject.expr_value_type())
     if node.operation == ParsedAssignOperations.Assign:
         return CheckedAssign(
             subject, value, CheckedAssignOperations.Assign, subject.expr_value_type()

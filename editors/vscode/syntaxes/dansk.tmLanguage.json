@@ -24,6 +24,9 @@
 			"include": "#strings"
 		},
 		{
+			"include": "#chars"
+		},
+		{
 			"include": "#operator"
 		},
 		{
@@ -84,6 +87,17 @@
 			"name": "string.quoted.double.dansk",
 			"begin": "\"",
 			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.dansk",
+					"match": "\\\\."
+				}
+			]
+		},
+		"chars": {
+			"name": "string.quoted.single.dansk",
+			"begin": "'",
+			"end": "'",
 			"patterns": [
 				{
 					"name": "constant.character.escape.dansk",

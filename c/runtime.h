@@ -30,6 +30,7 @@ Array* array_new();
 void array_destroy(Array* array);
 long array_push(Array* array, size_t value);
 size_t array_at(Array* array, int64_t i);
+size_t array_set(Array* array, int64_t i, size_t value);
 
 long skriv_heltal(long value);
 long skriv_decimal(double value);
@@ -41,10 +42,13 @@ String* laes_fil(String* filename);
 
 long fejl(const String* message);
 long tekst_laengde(const String* string);
-long laengde_af_tegnliste(const Array* array);
-Array* tom_tegnliste();
+long tekst_til_heltal(String* value);
+
+long tegnliste_laengde(const Array* array);
 void tegnliste_tilfoej(Array* array, char value);
 String* tegnliste_til_tekst(Array* array);
-long tekst_til_heltal(String* value);
+
+long heltalliste_laengde(const Array* array);
+void heltalliste_tilfoej(Array* array, long value);
 
 #endif
