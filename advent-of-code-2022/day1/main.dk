@@ -4,14 +4,14 @@ funktion tegn_er_tal(t: tegn) -> boolsk
 slut
 
 funktion analyser_tal(input: tekst, i: heltal[]) -> heltal
-    lad tal_tegn: tegn[] = [input[i[0]]]
+    lad tal_tegn = [input[i[0]]]
     i[0] += 1
     mens i[0] < tekst_længde(input) og tegn_er_tal(input[i[0]]) så
         tegnliste_tilføj(tal_tegn, input[i[0]])
         i[0] += 1
     slut
-    lad tal_tekst: tekst = tegnliste_til_tekst(tal_tegn)
-    lad tal: heltal = tekst_til_heltal(tal_tekst)
+    lad tal_tekst = tegnliste_til_tekst(tal_tegn)
+    lad tal = tekst_til_heltal(tal_tekst)
     returner tal
 slut
 

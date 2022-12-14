@@ -1000,7 +1000,7 @@ def check_array(
                 f"incompatible types {resulting_type} and {checked_values[0].expr_value_type()}"
             )
         else:
-            return CheckedArray([], CheckedArrayType(resulting_type))
+            return CheckedArray(checked_values, CheckedArrayType(resulting_type))
     elif len(checked_values) == 0:
         raise Exception("cannot deduce type of array elements")
     else:

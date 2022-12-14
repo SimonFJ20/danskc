@@ -28,7 +28,7 @@ typedef struct Array {
 
 Array* array_new();
 void array_destroy(Array* array);
-long array_push(Array* array, size_t value);
+Array* array_push(Array* array, size_t value);
 size_t array_at(Array* array, int64_t i);
 size_t array_set(Array* array, int64_t i, size_t value);
 

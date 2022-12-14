@@ -76,7 +76,7 @@ void array_destroy(Array* array)
         free(array->buffer);
 }
 
-long array_push(Array* array, size_t value)
+Array* array_push(Array* array, size_t value)
 {
     if (array->length + 1 > array->capacity) {
         array->capacity += array_block_size;
@@ -88,7 +88,7 @@ long array_push(Array* array, size_t value)
     }
     array->buffer[array->length] = value;
     array->length++;
-    return 0;
+    return array;
 }
 
 size_t array_at(Array* array, int64_t i)

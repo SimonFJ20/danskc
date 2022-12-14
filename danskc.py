@@ -14,6 +14,7 @@ def main() -> None:
     argparser.add_argument("--tempfile", required=False, default="temp.c")
     argparser.add_argument("--gcc", action="store_true")
     argparser.add_argument("--debug", action="store_true")
+    argparser.add_argument("--keeptempfile", action="store_true")
     args = argparser.parse_args()
     with open(args.file) as file:
         text = file.read()
@@ -45,10 +46,19 @@ def main() -> None:
         if args.gcc:
             with open(args.tempfile, "w") as tempfile:
                 tempfile.write(c_code)
+            cflags = [
+                "-std=c17",
+                "-Ic",
+                "-Wall",
+                "-Wextra",
+                "-Wno-unused-variable",
+                "-Wno-parentheses-equality",
+            ]
             os.system(
-                f"gcc {args.tempfile} c/runtime.c -std=c17 -Ic -Wall -Wextra -Wno-unused-variable -o {args.outfile}"
+                f"gcc {args.tempfile} c/runtime.c {' '.join(cflags)} -o {args.outfile}"
             )
-            os.remove(args.tempfile)
+            if not args.keeptempfile:
+                os.remove(args.tempfile)
         else:
             raise NotImplementedError(
                 'GCC is currently the only backend, enable with "--gcc"'
