@@ -47,43 +47,42 @@ funktion grupper_tal(input: tekst) -> heltal[]
     returner grupper
 slut
 
-funktion most_calories() -> heltal
-    lad input = læs_fil("advent-of-code-2022/day1/input.txt")
-    lad største = 0
-    lad akkumulator = 0
-    lad buffer: tegn[] = []
-    lad i = 0
-    lad sidste_var_tom = falsk
-    mens i < tekst_længde(input) så
-        lad c = input[i]
-        hvis c == '\n' og sidste_var_tom så
-            hvis akkumulator > største så
-                største = akkumulator
+funktion heltalliste_byt(liste: heltal[], a: heltal, b: heltal) -> heltal
+    lad temp = liste[a]
+    liste[a] = liste[b]
+    liste[b] = temp
+    returner 0
+slut
+
+funktion sorter_heltalliste(liste: heltal[]) -> heltal
+    lad i = heltalliste_længde(liste) - 1;
+    mens i >= 1 så
+        lad j = i;
+        mens j >= 1 så
+            hvis liste[j - 1] > liste[j] så
+                heltalliste_byt(liste, j - 1, j)
             slut
-            akkumulator = 0
-        ellers hvis c == '\n' så
-            lad tal_tekst = tegnliste_til_tekst(buffer)
-            buffer = []
-            lad tal = tekst_til_heltal(tal_tekst)
-            akkumulator += tal
-            sidste_var_tom = sand
-        ellers hvis c >= '0' og c <= '9' så
-            tegnliste_tilføj(buffer, c)
-            sidste_var_tom = falsk
-        ellers
-            fejl("burde ikke kunne ske")
+
+            j -= 1
         slut
-        i += 1
+        i -= 1
     slut
-    returner største
+    returner 0
 slut
 
 funktion begynd() -> heltal
     lad input = læs_fil("advent-of-code-2022/day1/input.txt")
     lad grupper = grupper_tal(input)
-    skriv("How many total Calories is that Elf carrying?\n> ")
-    skriv_heltal(most_calories())
-    skriv("\nHow many Calories are those Elves carrying in total?\n> ")
+    sorter_heltalliste(grupper)
 
+    skriv("How many total Calories is that Elf carrying?\n> ")
+    skriv_heltal(grupper[heltalliste_længde(grupper) - 1])
+    skriv("\nHow many Calories are those Elves carrying in total?\n> ")
+    skriv_heltal(
+        grupper[heltalliste_længde(grupper) - 1]
+        + grupper[heltalliste_længde(grupper) - 2]
+        + grupper[heltalliste_længde(grupper) - 3]
+    )
+    
     returner 0
 slut

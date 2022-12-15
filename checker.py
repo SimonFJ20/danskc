@@ -985,7 +985,7 @@ def check_array(
     checked_values = [check_expr(value, local_table) for value in node.values]
     is_same = True
     for i in range(len(checked_values) - 1):
-        if types_compatible(
+        if not types_compatible(
             checked_values[i].expr_value_type(), checked_values[i].expr_value_type()
         ):
             is_same = False
@@ -1094,14 +1094,22 @@ def check_call(node: ParsedCall, local_table: LocalTable) -> CheckedCall:
 def check_unary(node: ParsedUnary, local_table: LocalTable) -> CheckedUnary:
     checked_subject = check_expr(node.subject, local_table)
     if node.operation == ParsedUnaryOperations.Not:
-        if checked_subject.expr_value_type() == CheckedTypeTypes.Int:
+        if checked_subject.expr_value_type().type_type() == CheckedTypeTypes.Int:
+            return CheckedUnary(
+                checked_subject,
+                CheckedUnaryOperations.Not,
+                checked_subject.expr_value_type(),
+            )
+        elif checked_subject.expr_value_type().type_type() == CheckedTypeTypes.Bool:
             return CheckedUnary(
                 checked_subject,
                 CheckedUnaryOperations.Not,
                 checked_subject.expr_value_type(),
             )
         else:
-            raise Exception("unsupported type in unary operation")
+            raise Exception(
+                f"unsupported type {checked_subject.expr_value_type()} in unary operation"
+            )
     else:
         raise Exception("unsupported unary operation")
 

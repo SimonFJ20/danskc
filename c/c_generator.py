@@ -26,6 +26,8 @@ from checker import (
     CheckedString,
     CheckedType,
     CheckedTypeTypes,
+    CheckedUnary,
+    CheckedUnaryOperations,
     CheckedWhile,
     GlobalTable,
     LocalTable,
@@ -77,7 +79,7 @@ def generate_top_level_func(func: CheckedFunc, global_table: GlobalTable) -> str
     if len(func.params) > 0:
         acc += f"{generate_type(func.params[0].value_type, global_table)} {func.params[0].subject}"
         for param in func.params[1:]:
-            acc += f", {generate_type(param.value_type, global_table)} {param.subject}"
+            acc += f", {generate_type(param.value_type, global_table)} {safeify_name(param.subject)}"
     acc += ")\n{\n"
     acc += generate_statements(func.body, global_table.func_local_tables[func.subject])
     acc += "}\n"
@@ -204,7 +206,7 @@ class StatementGenerator:
         elif node.expr_type() == CheckedExprTypes.Call:
             return self.generate_call(cast(CheckedCall, node))
         elif node.expr_type() == CheckedExprTypes.Unary:
-            raise NotImplementedError()
+            return self.generate_unary(cast(CheckedUnary, node))
         elif node.expr_type() == CheckedExprTypes.Binary:
             return self.generate_binary(cast(CheckedBinary, node))
         elif node.expr_type() == CheckedExprTypes.Assign:
@@ -239,6 +241,13 @@ class StatementGenerator:
             return f"(char)string_at({self.generate_expr(node.subject)}, {self.generate_expr(node.value)})"
         else:
             raise Exception()
+
+    def generate_unary(self, node: CheckedUnary) -> str:
+        value = self.generate_expr(node.subject)
+        if node.operation == CheckedUnaryOperations.Not:
+            return f"(!{value})"
+        else:
+            raise NotImplementedError()
 
     def generate_binary(self, node: CheckedBinary) -> str:
         left = self.generate_expr(node.left)
