@@ -47,6 +47,16 @@ funktion grupper_tal(input: tekst) -> heltal[]
     returner grupper
 slut
 
+funktion klon_liste(liste: heltal[]) -> heltal[]
+    lad klon: heltal[] = []
+    lad i = 0
+    mens i < heltalliste_længde(liste) så
+        heltalliste_tilføj(klon, liste[i])
+        i += 1
+    slut
+    returner klon
+slut
+
 funktion heltalliste_byt(liste: heltal[], a: heltal, b: heltal) -> heltal
     lad temp = liste[a]
     liste[a] = liste[b]
@@ -55,12 +65,13 @@ funktion heltalliste_byt(liste: heltal[], a: heltal, b: heltal) -> heltal
 slut
 
 funktion sorter_heltalliste(liste: heltal[]) -> heltal
+    lad klon = klon_liste(liste)
     lad i = heltalliste_længde(liste) - 1;
     mens i >= 1 så
         lad j = i;
         mens j >= 1 så
-            hvis liste[j - 1] > liste[j] så
-                heltalliste_byt(liste, j - 1, j)
+            hvis klon[j - 1] > klon[j] så
+                heltalliste_byt(klon, j - 1, j)
             slut
 
             j -= 1
@@ -73,7 +84,7 @@ slut
 funktion begynd() -> heltal
     lad input = læs_fil("advent-of-code-2022/day1/input.txt")
     lad grupper = grupper_tal(input)
-    sorter_heltalliste(grupper)
+    lad sorteret_grupper = sorter_heltalliste(grupper)
 
     skriv("How many total Calories is that Elf carrying?\n> ")
     skriv_heltal(grupper[heltalliste_længde(grupper) - 1])
