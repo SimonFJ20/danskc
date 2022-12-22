@@ -1,4 +1,6 @@
 
+KOMMENTAR curl https://adventofcode.com/2022/day/1/input > input.txt
+
 funktion tegn_er_tal(t: tegn) -> boolsk
     returner t >= '0' og t <= '9'
 slut
@@ -81,7 +83,7 @@ funktion sorter_heltalliste(liste: heltal[]) -> heltal[]
 slut
 
 funktion begynd() -> heltal
-    lad input = læs_fil("advent-of-code-2022/day1/input.txt")
+    lad input = læs_fil("input.txt")
     lad grupper = grupper_tal(input)
     lad sorteret_grupper = sorter_heltalliste(grupper)
 
