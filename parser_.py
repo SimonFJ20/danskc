@@ -618,14 +618,31 @@ class Parser:
         return self.parse_array_type()
 
     def parse_array_type(self) -> ParsedType:
-        inner_type = self.parse_id_type()
         if self.current_type() == TokenTypes.LBracket:
             self.step()
+            inner_type = self.parse_type()
             self.expect(TokenTypes.RBracket)
             self.step()
             return ParsedArrayType(inner_type)
         else:
+            inner_type = self.parse_grouped_type()
+            if self.current_type() == TokenTypes.LBracket:
+                self.step()
+                self.expect(TokenTypes.RBracket)
+                self.step()
+                return ParsedArrayType(inner_type)
+            else:
+                return inner_type
+
+    def parse_grouped_type(self) -> ParsedType:
+        if self.current_type() == TokenTypes.LParen:
+            self.step()
+            inner_type = self.parse_type()
+            self.expect(TokenTypes.RParen)
+            self.step()
             return inner_type
+        else:
+            return self.parse_id_type()
 
     def parse_id_type(self) -> ParsedType:
         if self.current_type() != TokenTypes.Id:

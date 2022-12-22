@@ -1,2 +1,69 @@
 
-KOMMENTAR curl https://adventofcode.com/2022/day/2/input > input.txt
+KOMMENTAR https://adventofcode.com/2022/day/2/input
+
+lad sten = 0
+lad papir = 1
+lad saks = 2
+
+funktion træk_point(træk: heltal) -> heltal
+    hvis træk == sten så
+        returner 1
+    ellers hvis træk == papir så
+        returner 2
+    ellers hvis træk == saks så
+        returner 3
+    ellers
+        fejl("uudtømt match")
+        returner -1
+    slut
+slut
+
+funktion analyser_nisse_træk_tegn(træk_tegn: tegn) -> heltal
+    hvis træk_tegn == 'A' så
+        returner 0
+    ellers hvis træk_tegn == 'B' så
+        returner 1
+    ellers hvis træk_tegn == 'C' så
+        returner 2
+    ellers
+        fejl("ugyldigt nisse træk")
+        returner -1
+    slut
+slut
+
+funktion analyser_spiller_træk_tegn(træk_tegn: tegn) -> heltal
+    hvis træk_tegn == 'X' så
+        returner 0
+    ellers hvis træk_tegn == 'Y' så
+        returner 1
+    ellers hvis træk_tegn == 'Z' så
+        returner 2
+    ellers
+        fejl("ugyldigt spiller træk")
+        returner -1
+    slut
+slut
+
+funktion analyser_linje(linje: tekst) -> heltal[]
+    hvis linje[1] != ' ' eller linje[3] != '\n' så
+        fejl("ugyldig linje")
+    slut
+    returner [
+        analyser_nisse_træk_tegn(linje[0]),
+        analyser_spiller_træk_tegn(linje[2]),
+    ]
+slut
+
+funktion analyser_træk_fra_input(input: tekst) -> [[heltal]]
+    lad træk: [[heltal]] = []
+    lad i = 0
+    mens i < tekst_længde(input) så
+        KOMMENTAR lack of traits
+    slut
+    returner træk
+slut
+
+funktion begynd() -> heltal
+    lad input_tekst = læs_fil("input.txt") 
+    returner 0
+slut

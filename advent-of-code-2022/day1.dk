@@ -1,5 +1,5 @@
 
-KOMMENTAR curl https://adventofcode.com/2022/day/1/input > input.txt
+KOMMENTAR https://adventofcode.com/2022/day/1/input
 
 funktion tegn_er_tal(t: tegn) -> boolsk
     returner t >= '0' og t <= '9'

@@ -1168,6 +1168,8 @@ def check_binary(node: ParsedBinary, local_table: LocalTable) -> CheckedBinary:
     elif node.operation == ParsedBinaryOperations.NE:
         if type_combo == (CheckedTypeTypes.Int, CheckedTypeTypes.Int):
             return CheckedBinary(left, right, Ops.NE, CheckedBoolType())
+        elif type_combo == (CheckedTypeTypes.Char, CheckedTypeTypes.Char):
+            return CheckedBinary(left, right, Ops.NE, CheckedBoolType())
         else:
             fail(node.operation, type_combo)
     elif node.operation == ParsedBinaryOperations.LT:
