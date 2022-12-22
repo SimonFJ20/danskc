@@ -80,12 +80,6 @@ funktion sorter_heltalliste(liste: heltal[]) -> heltal[]
     returner klon
 slut
 
-funktion printiln(værdi: heltal) -> heltal
-    skriv_heltal(værdi)
-    skriv("\n")
-    returner 0
-slut
-
 funktion begynd() -> heltal
     lad input = læs_fil("advent-of-code-2022/day1/input.txt")
     lad grupper = grupper_tal(input)
