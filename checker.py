@@ -477,6 +477,7 @@ class CheckedCall(CheckedExpr):
 
 class CheckedUnaryOperations(Enum):
     Not = auto()
+    Negate = auto()
 
 
 class CheckedUnary(CheckedExpr):
@@ -1110,8 +1111,19 @@ def check_unary(node: ParsedUnary, local_table: LocalTable) -> CheckedUnary:
             raise Exception(
                 f"unsupported type {checked_subject.expr_value_type()} in unary operation"
             )
+    elif node.operation == ParsedUnaryOperations.Negate:
+        if checked_subject.expr_value_type().type_type() == CheckedTypeTypes.Int:
+            return CheckedUnary(
+                checked_subject,
+                CheckedUnaryOperations.Negate,
+                checked_subject.expr_value_type(),
+            )
+        else:
+            raise Exception(
+                f"unsupported type {checked_subject.expr_value_type()} in unary operation"
+            )
     else:
-        raise Exception("unsupported unary operation")
+        raise Exception(f"unsupported unary operation {node.operation}")
 
 
 def check_binary(node: ParsedBinary, local_table: LocalTable) -> CheckedBinary:

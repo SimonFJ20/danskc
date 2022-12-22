@@ -77,7 +77,7 @@ def generate_top_level_func(func: CheckedFunc, global_table: GlobalTable) -> str
         acc += f"{generate_type(func.return_type, global_table)} {subject}"
     acc += f"("
     if len(func.params) > 0:
-        acc += f"{generate_type(func.params[0].value_type, global_table)} {func.params[0].subject}"
+        acc += f"{generate_type(func.params[0].value_type, global_table)} {safeify_name(func.params[0].subject)}"
         for param in func.params[1:]:
             acc += f", {generate_type(param.value_type, global_table)} {safeify_name(param.subject)}"
     acc += ")\n{\n"
@@ -246,6 +246,8 @@ class StatementGenerator:
         value = self.generate_expr(node.subject)
         if node.operation == CheckedUnaryOperations.Not:
             return f"(!{value})"
+        elif node.operation == CheckedUnaryOperations.Negate:
+            return f"(-{value})"
         else:
             raise NotImplementedError()
 

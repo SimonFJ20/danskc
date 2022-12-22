@@ -64,20 +64,25 @@ funktion heltalliste_byt(liste: heltal[], a: heltal, b: heltal) -> heltal
     returner 0
 slut
 
-funktion sorter_heltalliste(liste: heltal[]) -> heltal
+funktion sorter_heltalliste(liste: heltal[]) -> heltal[]
     lad klon = klon_liste(liste)
-    lad i = heltalliste_længde(liste) - 1;
-    mens i >= 1 så
-        lad j = i;
+    lad i = 0;
+    mens i < heltalliste_længde(liste) - 2 så
+        lad j = heltalliste_længde(liste) - 1;
         mens j >= 1 så
             hvis klon[j - 1] > klon[j] så
                 heltalliste_byt(klon, j - 1, j)
             slut
-
             j -= 1
         slut
-        i -= 1
+        i += 1
     slut
+    returner klon
+slut
+
+funktion printiln(værdi: heltal) -> heltal
+    skriv_heltal(værdi)
+    skriv("\n")
     returner 0
 slut
 
@@ -87,13 +92,14 @@ funktion begynd() -> heltal
     lad sorteret_grupper = sorter_heltalliste(grupper)
 
     skriv("How many total Calories is that Elf carrying?\n> ")
-    skriv_heltal(grupper[heltalliste_længde(grupper) - 1])
+    skriv_heltal(sorteret_grupper[-1])
     skriv("\nHow many Calories are those Elves carrying in total?\n> ")
     skriv_heltal(
-        grupper[heltalliste_længde(grupper) - 1]
-        + grupper[heltalliste_længde(grupper) - 2]
-        + grupper[heltalliste_længde(grupper) - 3]
+        sorteret_grupper[-1]
+        + sorteret_grupper[-2]
+        + sorteret_grupper[-3]
     )
+    skriv("\n")
     
     returner 0
 slut

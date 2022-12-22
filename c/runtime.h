@@ -17,7 +17,7 @@ typedef struct String {
 String* string_new();
 void string_destroy(String* string);
 String* string_from(const char* literal);
-char string_at(const String* string, long index);
+char string_at(const String* string, long i);
 
 typedef struct Array {
     size_t refs;
@@ -29,8 +29,8 @@ typedef struct Array {
 Array* array_new();
 void array_destroy(Array* array);
 Array* array_push(Array* array, size_t value);
-size_t array_at(Array* array, int64_t i);
-size_t array_set(Array* array, int64_t i, size_t value);
+size_t array_at(const Array* array, long i);
+size_t array_set(Array* array, long i, long value);
 
 long skriv_heltal(long value);
 long skriv_decimal(double value);

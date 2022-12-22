@@ -46,9 +46,16 @@ String* string_from(const char* literal)
     return string;
 }
 
-char string_at(const String* string, long index)
+char string_at(const String* string, long i)
 {
-    return string->buffer[index];
+    if (i < 0) {
+        return string_at(string, string->length - i);
+    } else if ((size_t)i >= string->length) {
+        fprintf(stderr, "terminator: index out of bounds\n");
+        exit(1);
+    } else {
+        return string->buffer[i];
+    }
 }
 
 const size_t array_block_size = 8;
@@ -91,19 +98,19 @@ Array* array_push(Array* array, size_t value)
     return array;
 }
 
-size_t array_at(Array* array, int64_t i)
+size_t array_at(const Array* array, long i)
 {
     if (i < 0) {
-        return array_at(array, -i);
+        return array_at(array, array->length + i);
     } else if ((size_t)i >= array->length) {
-        fprintf(stderr, "terminator: index out of bounds\n");
+        fprintf(stderr, "terminator: index out of bounds");
         exit(1);
     } else {
         return array->buffer[i];
     }
 }
 
-size_t array_set(Array* array, int64_t i, size_t value)
+size_t array_set(Array* array, long i, long value)
 {
     if ((size_t)i >= array->length) {
         fprintf(stderr, "terminator: index out of bounds\n");

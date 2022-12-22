@@ -363,6 +363,7 @@ class ParsedCall(ParsedExpr):
 
 class ParsedUnaryOperations(Enum):
     Not = auto()
+    Negate = auto()
 
 
 class ParsedUnary(ParsedExpr):
@@ -780,6 +781,9 @@ class Parser:
         if not self.done() and self.current_type() == TokenTypes.KwNot:
             self.step()
             return ParsedUnary(self.parse_unary(), ParsedUnaryOperations.Not)
+        elif not self.done() and self.current_type() == TokenTypes.Minus:
+            self.step()
+            return ParsedUnary(self.parse_unary(), ParsedUnaryOperations.Negate)
         else:
             return self.parse_call()
 
