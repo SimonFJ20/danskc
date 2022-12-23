@@ -23,6 +23,7 @@ class TokenTypes(Enum):
     KwTrue = auto()
     KwAnd = auto()
     KwOr = auto()
+    KwType = auto()
     LParen = auto()
     RParen = auto()
     LBrace = auto()
@@ -145,6 +146,10 @@ def tokenize(text: str) -> List[Token]:
         elif chars_match(text[i:], "eller"):
             l = len("eller")
             tokens.append(Token(TokenTypes.KwOr, text[i : i + l], line))
+            i += l
+        elif chars_match(text[i:], "type"):
+            l = len("type")
+            tokens.append(Token(TokenTypes.KwType, text[i : i + l], line))
             i += l
         elif text[i] in ID_CHARS:
             value = text[i]

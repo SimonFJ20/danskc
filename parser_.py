@@ -12,6 +12,7 @@ class ParsedStatementTypes(Enum):
     Break = auto()
     Func = auto()
     Return = auto()
+    TypeAlias = auto()
 
 
 class ParsedStatement:

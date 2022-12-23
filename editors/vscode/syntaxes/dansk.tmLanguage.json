@@ -9,10 +9,10 @@
 			"include": "#numbers"
 		},
 		{
-			"include": "#entity"
+			"include": "#keywords"
 		},
 		{
-			"include": "#keywords"
+			"include": "#entity"
 		},
 		{
 			"include": "#constants"
@@ -57,20 +57,20 @@
 				"match": "\\b0|[1-9][0-9]*(\\.[0-9]+)?\\b"
 			}]
 		},
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.dansk",
+				"match": "\\b(ikke|lad|hvis|så|ellers|mens|bryd|slut|funktion|returner|og|eller|type)\\b"
+			}]
+		},
 		"entity": {
             "patterns": [
                 {
-                    "match": "(?!(for|if|switch|while))(?>[a-zA-Z_](\\w+)?)(?=\\()",
+                    "match": "(?>[a-zA-Z_](\\w+)?)\\s*(?=\\()",
                     "name": "entity.name.function.dansk"
                 }
             ]
         },
-		"keywords": {
-			"patterns": [{
-				"name": "keyword.control.dansk",
-				"match": "\\b(ikke|lad|hvis|så|ellers|mens|bryd|slut|funktion|returner|og|eller)\\b"
-			}]
-		},
 		"constants": {
 			"patterns": [{
 				"name": "constant.language.dansk",
@@ -78,10 +78,16 @@
 			}]
 		},
 		"types": {
-			"patterns": [{
-				"name": "storage.type.dansk",
-				"match": "\\b(heltal|decimal|tegn|tekst|boolsk)\\b"
-			}]
+			"patterns": [
+				{
+					"name": "storage.type.dansk",
+					"match": "\\b(heltal|decimal|tegn|tekst|boolsk)\\b"
+				},
+				{
+					"name": "entity.name.type.dansk",
+					"match": "[A-Z][a-zA-Z0-9_]*"
+				}
+			]
 		},
 		"strings": {
 			"name": "string.quoted.double.dansk",
@@ -128,12 +134,12 @@
 		"variable": {
             "patterns": [
                 {
-                    "match": "(?>[a-zA-Z_](\\w+)?)\\s?(?=\\=)",
-                    "name": "variable.other.assignment.dansk"
+                    "match": "(?>[a-z_]\\w*)\\s*(?=\\=)",
+                    "name": "variable.other.assign.dansk"
                 },
                 {
-                    "match": "(?>[a-zA-Z_](\\w+)?)(?=\\[)",
-                    "name": "variable.other.access.dansk"
+                    "match": "(?>[a-z_]\\w*)",
+                    "name": "variable.other.dansk"
                 }
             ]
         }

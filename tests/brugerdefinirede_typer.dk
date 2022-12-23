@@ -1,0 +1,9 @@
+
+type Type = heltal 
+
+funktion begynd() -> heltal
+    lad a: heltal = 123
+    lad b: Type = b
+    returner b;
+slut
+

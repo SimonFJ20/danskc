@@ -1,0 +1,8 @@
+
+funktion samme<T>(værdi: T) -> T
+    returner værdi
+slut
+
+funktion main() -> heltal
+    returner samme<heltal>(0)
+slut
