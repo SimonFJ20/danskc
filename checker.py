@@ -12,6 +12,7 @@ from parser_ import (
     ParsedLet,
     ParsedIf,
     ParsedType,
+    ParsedTypeAlias,
     ParsedTypeTypes,
     ParsedWhile,
     ParsedReturn,
@@ -571,10 +572,25 @@ class Symbol:
         Symbol.__next_symbol_id += 1
 
 
-class GlobalTable:
+class SymbolTable:
+    def __init__(self) -> None:
+        pass
+
+    def define(self, subject: str, value_type: CheckedType) -> Optional[int]:
+        raise NotImplementedError()
+
+    def has(self, subject: str) -> bool:
+        raise NotImplementedError()
+
+    def get(self, subject: str) -> Symbol:
+        raise NotImplementedError()
+
+
+class GlobalTable(SymbolTable):
     def __init__(
         self, top_level: List[ParsedStatement], decl_locations: Dict[str, int]
     ) -> None:
+        super().__init__()
         self.top_level = top_level
         self.decl_locations = decl_locations
         self.table: Dict[str, Symbol] = {}
@@ -620,8 +636,9 @@ class GlobalTableBuilder:
         return GlobalTable(top_level, self.table)
 
 
-class LocalTable:
+class LocalTable(SymbolTable):
     def __init__(self) -> None:
+        super().__init__()
         pass
 
     def _add_symbol(self, subject: str, value_type: CheckedType) -> int:
@@ -754,6 +771,9 @@ def check_top_level_statements(
         elif statement.statement_type() == ParsedStatementTypes.Func:
             func = cast(ParsedFunc, statement)
             checked_statements.append(check_top_level_func(func, global_table))
+        elif statement.statement_type() == ParsedStatementTypes.TypeAlias:
+            type_alias = cast(ParsedTypeAlias, statement)
+            check_top_level_type_alias(type_alias, global_table)
         else:
             raise Exception(
                 f"statement {statement.statement_type()} not allowed in top level"
@@ -775,7 +795,7 @@ def build_global_table(top_level: List[ParsedStatement]) -> GlobalTable:
 
 def check_top_level_let(node: ParsedLet, global_table: GlobalTable) -> CheckedLet:
     if node.value_type:
-        value_type = check_type(node.value_type)
+        value_type = check_type(node.value_type, global_table)
         value = check_top_level_expr(node.value, global_table, value_type)
     else:
         value = check_top_level_expr(node.value, global_table)
@@ -797,8 +817,11 @@ def check_top_level_expr(
 
 
 def check_top_level_func(node: ParsedFunc, global_table: GlobalTable) -> CheckedFunc:
-    params = [CheckedParam(p.subject, check_type(p.value_type)) for p in node.params]
-    return_type = check_type(node.return_type)
+    params = [
+        CheckedParam(p.subject, check_type(p.value_type, global_table))
+        for p in node.params
+    ]
+    return_type = check_type(node.return_type, global_table)
     local_table = TopLevelLocalTable(global_table, return_type)
     for param in params:
         local_table.define(param.subject, param.value_type)
@@ -809,17 +832,23 @@ def check_top_level_func(node: ParsedFunc, global_table: GlobalTable) -> Checked
     return CheckedFunc(node.subject, params, return_type, body)
 
 
+def check_top_level_type_alias(
+    node: ParsedTypeAlias, global_table: GlobalTable
+) -> None:
+    global_table.define(node.subject, check_type(node.value, global_table))
+
+
 def check_statements(
     nodes: List[ParsedStatement],
     local_table: LocalTable,
 ) -> List[CheckedStatement]:
-    return [check_statement(node, local_table) for node in nodes]
+    return [s for s in [check_statement(node, local_table) for node in nodes] if s]
 
 
 def check_statement(
     node: ParsedStatement,
     local_table: LocalTable,
-) -> CheckedStatement:
+) -> Optional[CheckedStatement]:
     if node.statement_type() == ParsedStatementTypes.Expr:
         return check_expr_statement(cast(ParsedExprStatement, node), local_table)
     elif node.statement_type() == ParsedStatementTypes.Let:
@@ -834,6 +863,9 @@ def check_statement(
         return check_func(cast(ParsedFunc, node), local_table)
     elif node.statement_type() == ParsedStatementTypes.Return:
         return check_return(cast(ParsedReturn, node), local_table)
+    elif node.statement_type() == ParsedStatementTypes.TypeAlias:
+        check_type_alias(cast(ParsedTypeAlias, node), local_table)
+        return None
     else:
         raise Exception(f"unknown statement {node.statement_type()}")
 
@@ -847,7 +879,7 @@ def check_expr_statement(
 
 def check_let(node: ParsedLet, local_table: LocalTable) -> CheckedLet:
     if node.value_type:
-        value_type = check_type(node.value_type)
+        value_type = check_type(node.value_type, local_table)
         value = check_expr(node.value, local_table, value_type)
     else:
         value = check_expr(node.value, local_table)
@@ -886,16 +918,22 @@ def check_return(node: ParsedReturn, local_table: LocalTable) -> CheckedReturn:
         return CheckedReturn(None)
 
 
-def check_type(node: ParsedType) -> CheckedType:
+def check_type_alias(node: ParsedTypeAlias, local_table: LocalTable) -> None:
+    local_table.define(node.subject, check_type(node.value, local_table))
+
+
+def check_type(node: ParsedType, table: SymbolTable) -> CheckedType:
     if node.type_type() == ParsedTypeTypes.Id:
-        return check_id_type(cast(ParsedIdType, node))
+        return check_id_type(cast(ParsedIdType, node), table)
     elif node.type_type() == ParsedTypeTypes.Array:
-        return CheckedArrayType(check_type(cast(ParsedArrayType, node).inner_type))
+        return CheckedArrayType(
+            check_type(cast(ParsedArrayType, node).inner_type, table)
+        )
     else:
         raise Exception(f"unimplemented/unknown type {node.type_type()}")
 
 
-def check_id_type(node: ParsedIdType) -> CheckedType:
+def check_id_type(node: ParsedIdType, table: SymbolTable) -> CheckedType:
     if node.value == "heltal":
         return CheckedIntType()
     elif node.value == "decimal":
@@ -906,6 +944,8 @@ def check_id_type(node: ParsedIdType) -> CheckedType:
         return CheckedStringType()
     elif node.value == "boolsk":
         return CheckedBoolType()
+    elif table.has(node.value):
+        return table.get(node.value).value_type
     else:
         raise Exception(f"unknown type id {node.value}")
 

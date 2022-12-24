@@ -145,6 +145,19 @@ class ParsedReturn(ParsedStatement):
         return f"Return {{ value: {self.value} }}"
 
 
+class ParsedTypeAlias(ParsedStatement):
+    def __init__(self, subject: str, value: ParsedType) -> None:
+        super().__init__()
+        self.subject = subject
+        self.value = value
+
+    def statement_type(self) -> ParsedStatementTypes:
+        return ParsedStatementTypes.TypeAlias
+
+    def __str__(self) -> str:
+        return f"TypeAlias {{ subject: {self.subject}, value: {self.value} }}"
+
+
 class ParsedTypeTypes(Enum):
     Id = auto()
     Array = auto()
@@ -511,6 +524,8 @@ class Parser:
             return self.parse_if()
         elif self.current_type() == TokenTypes.KwLet:
             return self.parse_let()
+        elif self.current_type() == TokenTypes.KwType:
+            return self.parse_type_alias()
         else:
             return self.parse_expr_statement()
 
@@ -611,6 +626,16 @@ class Parser:
         self.step()
         value = self.parse_expr()
         return ParsedLet(subject, value_type, value)
+
+    def parse_type_alias(self) -> ParsedTypeAlias:
+        self.step()
+        self.expect(TokenTypes.Id)
+        subject = self.current().value
+        self.step()
+        self.expect(TokenTypes.Assign)
+        self.step()
+        value = self.parse_type()
+        return ParsedTypeAlias(subject, value)
 
     def parse_expr_statement(self) -> ParsedExprStatement:
         return ParsedExprStatement(self.parse_expr())

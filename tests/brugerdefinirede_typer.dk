@@ -3,7 +3,11 @@ type Type = heltal
 
 funktion begynd() -> heltal
     lad a: heltal = 123
-    lad b: Type = b
-    returner b;
+    lad b: Type = a
+
+    type Type2 = Type
+
+    lad c: Type2 = b
+    returner c;
 slut
 
