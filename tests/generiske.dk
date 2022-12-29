@@ -4,5 +4,5 @@ funktion samme<T>(værdi: T) -> T
 slut
 
 funktion main() -> heltal
-    returner samme<heltal>(0)
+    returner samme::<heltal>(0)
 slut

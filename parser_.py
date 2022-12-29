@@ -109,12 +109,14 @@ class ParsedFunc(ParsedStatement):
     def __init__(
         self,
         subject: str,
+        type_params: List[ParsedTypeParam],
         params: List[ParsedParam],
         return_type: ParsedType,
         body: List[ParsedStatement],
     ) -> None:
         super().__init__()
         self.subject = subject
+        self.type_params = type_params
         self.params = params
         self.return_type = return_type
         self.body = body
@@ -158,11 +160,6 @@ class ParsedTypeAlias(ParsedStatement):
         return f"TypeAlias {{ subject: {self.subject}, value: {self.value} }}"
 
 
-class ParsedTypeTypes(Enum):
-    Id = auto()
-    Array = auto()
-
-
 class ParsedParam:
     def __init__(self, subject: str, value_type: ParsedType) -> None:
         self.subject = subject
@@ -170,6 +167,19 @@ class ParsedParam:
 
     def __str__(self) -> str:
         return f"Param {{ subject: {self.subject}, value_type: {self.value_type} }}"
+
+
+class ParsedTypeParam:
+    def __init__(self, subject: str) -> None:
+        self.subject = subject
+
+    def __str__(self) -> str:
+        return f"TypeParam {{ subject: {self.subject} }}"
+
+
+class ParsedTypeTypes(Enum):
+    Id = auto()
+    Array = auto()
 
 
 class ParsedType:
@@ -362,9 +372,12 @@ class ParsedIndexing(ParsedExpr):
 
 
 class ParsedCall(ParsedExpr):
-    def __init__(self, subject: ParsedExpr, args: List[ParsedExpr]) -> None:
+    def __init__(
+        self, subject: ParsedExpr, type_args: List[ParsedType], args: List[ParsedExpr]
+    ) -> None:
         super().__init__()
         self.subject = subject
+        self.type_args = type_args
         self.args = args
 
     def expr_type(self) -> ParsedExprTypes:
@@ -372,7 +385,8 @@ class ParsedCall(ParsedExpr):
 
     def __str__(self) -> str:
         args = ", ".join(str(arg) for arg in self.args)
-        return f"Call {{ subject: {self.subject}, args: [ {args} ] }}"
+        type_args = ", ".join(str(type_args) for type_args in self.type_args)
+        return f"Call {{ subject: {self.subject}, args: [ {args} ], type_args: [ {type_args} ] }}"
 
 
 class ParsedUnaryOperations(Enum):
@@ -534,8 +548,38 @@ class Parser:
         self.expect(TokenTypes.Id)
         subject = self.current().value
         self.step()
+        type_params = self.parse_func_type_params()
         self.expect(TokenTypes.LParen)
         self.step()
+        params = self.parse_func_params()
+        self.expect(TokenTypes.ThinArrow)
+        self.step()
+        return_type = self.parse_type()
+        body = self.parse_statements()
+        self.expect(TokenTypes.KwEnd)
+        self.step()
+        return ParsedFunc(subject, type_params, params, return_type, body)
+
+    def parse_func_type_params(self) -> List[ParsedTypeParam]:
+        type_params: List[ParsedTypeParam] = []
+        if not self.done() and self.current_type() == TokenTypes.LT:
+            self.step()
+            if self.current_type() not in [TokenTypes.GT, TokenTypes.Comma]:
+                self.expect(TokenTypes.Id)
+                type_params.append(ParsedTypeParam(self.current().value))
+                self.step()
+                while self.current_type() == TokenTypes.Comma:
+                    self.step()
+                    if self.current_type() == TokenTypes.GT:
+                        break
+                    self.expect(TokenTypes.Id)
+                    type_params.append(ParsedTypeParam(self.current().value))
+                    self.step()
+            self.expect(TokenTypes.GT)
+            self.step()
+        return type_params
+
+    def parse_func_params(self) -> List[ParsedParam]:
         params: List[ParsedParam] = []
         while not self.done() and self.current_type() != TokenTypes.RParen:
             self.expect(TokenTypes.Id)
@@ -551,13 +595,7 @@ class Parser:
                 break
         self.expect(TokenTypes.RParen)
         self.step()
-        self.expect(TokenTypes.ThinArrow)
-        self.step()
-        return_type = self.parse_type()
-        body = self.parse_statements()
-        self.expect(TokenTypes.KwEnd)
-        self.step()
-        return ParsedFunc(subject, params, return_type, body)
+        return params
 
     def parse_return(self) -> ParsedReturn:
         self.step()
@@ -832,21 +870,46 @@ class Parser:
 
     def parse_call(self) -> ParsedExpr:
         subject = self.parse_indexing()
-        if not self.done() and self.current_type() == TokenTypes.LParen:
-            self.step()
-            args: List[ParsedExpr] = []
-            if self.current_type() not in [TokenTypes.RParen, TokenTypes.Comma]:
-                args.append(self.parse_expr())
-                while self.current_type() == TokenTypes.Comma:
-                    self.step()
-                    if self.current_type() == TokenTypes.RParen:
-                        break
-                    args.append(self.parse_expr())
-            self.expect(TokenTypes.RParen)
-            self.step()
-            return ParsedCall(subject, args)
+        if not self.done() and self.current_type() in [
+            TokenTypes.LParen,
+            TokenTypes.DoubleColon,
+        ]:
+            type_args = self.parse_call_type_args()
+            args = self.parse_call_args()
+            return ParsedCall(subject, type_args, args)
         else:
             return subject
+
+    def parse_call_type_args(self) -> List[ParsedType]:
+        type_args: List[ParsedType] = []
+        if self.current_type() == TokenTypes.DoubleColon:
+            self.step()
+            self.expect(TokenTypes.LT)
+            self.step()
+            if self.current_type() not in [TokenTypes.GT, TokenTypes.Comma]:
+                type_args.append(self.parse_type())
+                while self.current_type() == TokenTypes.Comma:
+                    self.step()
+                    if self.current_type() == TokenTypes.GT:
+                        break
+                    type_args.append(self.parse_type())
+            self.expect(TokenTypes.GT)
+            self.step()
+        return type_args
+
+    def parse_call_args(self) -> List[ParsedExpr]:
+        args: List[ParsedExpr] = []
+        self.step()
+        if self.current_type() not in [TokenTypes.RParen, TokenTypes.Comma]:
+            args.append(self.parse_expr())
+            while self.current_type() == TokenTypes.Comma:
+                self.step()
+                if self.current_type() == TokenTypes.RParen:
+                    break
+                args.append(self.parse_expr())
+        self.expect(TokenTypes.RParen)
+        self.step()
+        return args
 
     def parse_indexing(self) -> ParsedExpr:
         subject = self.parse_accessing()

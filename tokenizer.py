@@ -31,6 +31,7 @@ class TokenTypes(Enum):
     LBracket = auto()
     RBracket = auto()
     Dot = auto()
+    DoubleColon = auto()
     Comma = auto()
     Colon = auto()
     ThinArrow = auto()
@@ -240,6 +241,9 @@ def tokenize(text: str) -> List[Token]:
         elif chars_match(text[i:], "."):
             tokens.append(Token(TokenTypes.Dot, text[i], line))
             i += 1
+        elif chars_match(text[i:], "::"):
+            tokens.append(Token(TokenTypes.DoubleColon, text[i : i + 2], line))
+            i += 2
         elif chars_match(text[i:], ","):
             tokens.append(Token(TokenTypes.Comma, text[i], line))
             i += 1

@@ -1,0 +1,8 @@
+
+funktion læg_sammen(a: heltal, b: heltal) -> heltal
+    returner a + b
+slut
+
+funktion begynd() -> heltal
+    returner læg_sammen(1, 2)
+slut
