@@ -1,5 +1,5 @@
 from random import randint
-from typing import List, cast
+from typing import List, Union, cast
 from checker import (
     CheckedArray,
     CheckedAssign,
@@ -15,6 +15,7 @@ from checker import (
     CheckedExprTypes,
     CheckedFloat,
     CheckedFunc,
+    CheckedGenericType,
     CheckedId,
     CheckedIf,
     CheckedIndexing,
@@ -69,6 +70,8 @@ def generate_top_level_expr(node: CheckedExpr, global_table: GlobalTable) -> str
 
 
 def generate_top_level_func(func: CheckedFunc, global_table: GlobalTable) -> str:
+    if func.is_generic():
+        return generate_top_level_generic_func(func, global_table)
     acc = "\n"
     if func.subject == "begynd":
         acc += f"int main"
@@ -86,7 +89,33 @@ def generate_top_level_func(func: CheckedFunc, global_table: GlobalTable) -> str
     return acc
 
 
-def generate_type(node: CheckedType, local_table) -> str:
+def generate_top_level_generic_func(
+    func: CheckedFunc, global_table: GlobalTable
+) -> str:
+    acc = f"\n// {safeify_name(func.subject)}"
+    instances = global_table.get_func_instances(func.func_id())
+    for instance in instances:
+        local_table = global_table.func_local_tables[func.subject]
+        for i in range(len(instances)):
+            local_table.add_generic_replacers(i, instance[i])
+            print(i, instance[i].type_type())
+        print(cast(CheckedGenericType, local_table.get("T").value_type).arg_id)
+
+        subject = safeify_name(func.subject)
+        acc += f"{generate_type(func.return_type, local_table)} {subject}("
+        if len(func.params) > 0:
+            acc += f"{generate_type(func.params[0].value_type, global_table)} {safeify_name(func.params[0].subject)}"
+            for param in func.params[1:]:
+                acc += f", {generate_type(param.value_type, global_table)} {safeify_name(param.subject)}"
+        acc += ")\n{\n"
+        acc += generate_statements(func.body, local_table)
+        acc += "}\n"
+    return acc
+
+
+def generate_type(
+    node: CheckedType, local_table: Union[GlobalTable, LocalTable]
+) -> str:
     if node.type_type() == CheckedTypeTypes.Int:
         return "long"
     elif node.type_type() == CheckedTypeTypes.Float:
@@ -104,7 +133,7 @@ def generate_type(node: CheckedType, local_table) -> str:
     elif node.type_type() == CheckedTypeTypes.Func:
         raise NotImplementedError()
     else:
-        raise Exception()
+        raise Exception(f"{node.type_type()}")
 
 
 def generate_statements(

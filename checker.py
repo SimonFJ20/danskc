@@ -120,18 +120,28 @@ class CheckedFunc(CheckedStatement):
     def __init__(
         self,
         subject: str,
+        type_params: List[CheckedTypeParam],
         params: List[CheckedParam],
         return_type: CheckedType,
         body: List[CheckedStatement],
+        func_id: int,
     ) -> None:
         super().__init__()
         self.subject = subject
+        self.type_params = type_params
         self.params = params
         self.return_type = return_type
         self.body = body
+        self.__func_id = func_id
 
     def statement_type(self) -> CheckedStatementTypes:
         return CheckedStatementTypes.Func
+
+    def is_generic(self) -> bool:
+        return len(self.type_params) > 0
+
+    def func_id(self) -> int:
+        return self.__func_id
 
 
 class CheckedReturn(CheckedStatement):
@@ -149,6 +159,11 @@ class CheckedParam:
         self.value_type = value_type
 
 
+class CheckedTypeParam:
+    def __init__(self, subject: str) -> None:
+        self.subject = subject
+
+
 class CheckedTypeTypes(Enum):
     Int = auto()
     Float = auto()
@@ -158,6 +173,7 @@ class CheckedTypeTypes(Enum):
     Array = auto()
     Object = auto()
     Func = auto()
+    Generic = auto()
 
     def __str__(self) -> str:
         if self == CheckedTypeTypes.Int:
@@ -176,6 +192,8 @@ class CheckedTypeTypes(Enum):
             return "Object"
         elif self == CheckedTypeTypes.Func:
             return "Func"
+        elif self == CheckedTypeTypes.Generic:
+            return "Generic"
         else:
             raise Exception()
 
@@ -271,13 +289,36 @@ class CheckedObjectType(CheckedType):
 
 
 class CheckedFuncType(CheckedType):
-    def __init__(self, params: List[CheckedParam], return_type: CheckedType) -> None:
+    def __init__(
+        self,
+        type_params: List[CheckedTypeParam],
+        params: List[CheckedParam],
+        return_type: CheckedType,
+        func_id: int,
+    ) -> None:
         super().__init__()
+        self.type_params = type_params
         self.params = params
         self.return_type = return_type
+        self.func_id = func_id
 
     def type_type(self) -> CheckedTypeTypes:
         return CheckedTypeTypes.Func
+
+    def __str__(self) -> str:
+        raise NotImplementedError()
+
+    def is_generic(self) -> bool:
+        return len(self.type_params) > 0
+
+
+class CheckedGenericType(CheckedType):
+    def __init__(self, arg_index: int) -> None:
+        super().__init__()
+        self.arg_index = arg_index
+
+    def type_type(self) -> CheckedTypeTypes:
+        return CheckedTypeTypes.Generic
 
     def __str__(self) -> str:
         raise NotImplementedError()
@@ -595,6 +636,8 @@ class GlobalTable(SymbolTable):
         self.decl_locations = decl_locations
         self.table: Dict[str, Symbol] = {}
         self.func_local_tables: Dict[str, LocalTable] = {}
+        self.funcs_instances: Dict[int, List[List[CheckedType]]] = {}
+        self.__next_func_id = 0
 
     def define(self, subject: str, value_type: CheckedType) -> None:
         if subject in self.table:
@@ -605,7 +648,10 @@ class GlobalTable(SymbolTable):
             self.table[subject] = Symbol(subject, value_type)
 
     def define_func(
-        self, subject: str, value_type: CheckedType, local_table: LocalTable
+        self,
+        subject: str,
+        value_type: CheckedFuncType,
+        local_table: LocalTable,
     ) -> None:
         self.define(subject, value_type)
         self.func_local_tables[subject] = local_table
@@ -621,6 +667,42 @@ class GlobalTable(SymbolTable):
                 raise NotImplementedError()
             else:
                 raise Exception(f'use of undefined/indeclared symbol "{subject}"')
+
+    def next_func_id(self) -> int:
+        func_id = self.__next_func_id
+        self.__next_func_id += 1
+        return func_id
+
+    def __find_instance_func_id(
+        self, func_id: int, types: List[CheckedType]
+    ) -> Optional[int]:
+        for instance_id in self.funcs_instances:
+            if instance_id != func_id:
+                continue
+            for instance_params in self.funcs_instances[instance_id]:
+                if len(instance_params) != len(types):
+                    continue
+                params_match = True
+                for i in range(len(instance_params)):
+                    if not types_compatible(instance_params[i], types[i]):
+                        params_match = False
+                        break
+                if params_match:
+                    return instance_id
+        return None
+
+    def instanciate_func(self, func_id: int, types: List[CheckedType]) -> None:
+        existing_id = self.__find_instance_func_id(func_id, types)
+        if not existing_id:
+            if func_id not in self.funcs_instances:
+                self.funcs_instances[func_id] = []
+            self.funcs_instances[func_id].append(types)
+
+    def get_func_instances(self, func_id: int) -> List[List[CheckedType]]:
+        if func_id in self.funcs_instances:
+            return self.funcs_instances[func_id]
+        else:
+            return []
 
 
 class GlobalTableBuilder:
@@ -656,16 +738,15 @@ class LocalTable(SymbolTable):
     def branch(self) -> LocalTable:
         raise NotImplementedError()
 
-    def return_type_compatible(self, other: CheckedType) -> bool:
+    def instanciate_func(self, func_id: int, types: List[CheckedType]) -> None:
         raise NotImplementedError()
 
 
 class TopLevelLocalTable(LocalTable):
-    def __init__(self, global_table: GlobalTable, return_type: CheckedType) -> None:
+    def __init__(self, global_table: GlobalTable) -> None:
         self.global_table = global_table
         self.table: List[Tuple[str, Symbol]] = []
         self.local_symbols: Dict[str, Symbol] = {}
-        self.return_type = return_type
 
     def _add_symbol(self, subject: str, value_type: CheckedType) -> int:
         self.table.append((subject, Symbol(subject, value_type)))
@@ -691,8 +772,8 @@ class TopLevelLocalTable(LocalTable):
     def branch(self) -> LocalTable:
         return BranchedLocalTable(self)
 
-    def return_type_compatible(self, other: CheckedType) -> bool:
-        return types_compatible(self.return_type, other)
+    def instanciate_func(self, func_id: int, types: List[CheckedType]) -> None:
+        self.global_table.instanciate_func(func_id, types)
 
 
 class BranchedLocalTable(LocalTable):
@@ -723,8 +804,11 @@ class BranchedLocalTable(LocalTable):
     def branch(self) -> LocalTable:
         return BranchedLocalTable(self)
 
-    def return_type_compatible(self, other: CheckedType) -> bool:
-        return self.parent.return_type_compatible(other)
+    def instanciate_func(self, func_id: int, types: List[CheckedType]) -> None:
+        self.parent.instanciate_func(func_id, types)
+
+
+__next_func_id = 0
 
 
 def add_global_definitions(table: GlobalTable) -> None:
@@ -736,7 +820,20 @@ def add_global_definitions(table: GlobalTable) -> None:
     A = CheckedArrayType
     O = CheckedObjectType
     P = CheckedParam
-    FN = CheckedFuncType
+
+    global __next_func_id
+    __next_func_id = 1000
+
+    def FN(
+        params: List[CheckedParam],
+        return_type: CheckedType,
+        type_params: List[CheckedTypeParam] = [],
+    ) -> CheckedFuncType:
+        global __next_func_id
+        t = CheckedFuncType(type_params, params, return_type, __next_func_id)
+        __next_func_id += 1
+        return t
+
     table.define("skriv_heltal", FN([P("værdi", i)], i))
     table.define("skriv_decimal", FN([P("værdi", f)], i))
     table.define("skriv_boolsk", FN([P("værdi", b)], i))
@@ -817,19 +914,26 @@ def check_top_level_expr(
 
 
 def check_top_level_func(node: ParsedFunc, global_table: GlobalTable) -> CheckedFunc:
+    type_params = [CheckedTypeParam(p.subject) for p in node.type_params]
+    definition_scope_table = TopLevelLocalTable(global_table)
+    for i, type_param in enumerate(type_params):
+        definition_scope_table.define(type_param.subject, CheckedGenericType(i))
     params = [
-        CheckedParam(p.subject, check_type(p.value_type, global_table))
+        CheckedParam(p.subject, check_type(p.value_type, definition_scope_table))
         for p in node.params
     ]
-    return_type = check_type(node.return_type, global_table)
-    local_table = TopLevelLocalTable(global_table, return_type)
+    return_type = check_type(node.return_type, definition_scope_table)
+    local_table = definition_scope_table.branch()
     for param in params:
         local_table.define(param.subject, param.value_type)
+    func_id = global_table.next_func_id()
     global_table.define_func(
-        node.subject, CheckedFuncType(params, return_type), local_table
+        node.subject,
+        CheckedFuncType(type_params, params, return_type, func_id),
+        definition_scope_table,
     )
     body = check_statements(node.body, local_table.branch())
-    return CheckedFunc(node.subject, params, return_type, body)
+    return CheckedFunc(node.subject, type_params, params, return_type, body, func_id)
 
 
 def check_top_level_type_alias(
@@ -951,7 +1055,13 @@ def check_id_type(node: ParsedIdType, table: SymbolTable) -> CheckedType:
 
 
 def types_compatible(a: CheckedType, b: CheckedType, has_swapped=False) -> bool:
-    if a.type_type() in [
+    if (
+        a.type_type() == CheckedTypeTypes.Generic
+        or b.type_type() == CheckedTypeTypes.Generic
+    ):
+        # TODO something something traits
+        return True
+    elif a.type_type() in [
         CheckedTypeTypes.Int,
         CheckedTypeTypes.Float,
         CheckedTypeTypes.Char,
@@ -971,6 +1081,10 @@ def types_compatible(a: CheckedType, b: CheckedType, has_swapped=False) -> bool:
         return types_compatible(b, a, True)
     else:
         return False
+
+
+def match_types_and_infer_generics() -> Dict[int, CheckedType]:
+    pass
 
 
 def check_expr(
@@ -1109,6 +1223,7 @@ def check_call(node: ParsedCall, local_table: LocalTable) -> CheckedCall:
     if checked_subject.expr_value_type().type_type() != CheckedTypeTypes.Func:
         raise Exception("expression is not callable")
     subject_type = cast(CheckedFuncType, checked_subject.expr_value_type())
+    checked_type_args = [check_type(arg, local_table) for arg in node.type_args]
     checked_args = [check_expr(arg, local_table) for arg in node.args]
     if len(subject_type.params) != len(checked_args):
         raise Exception("wrong number of arguments")
@@ -1125,11 +1240,41 @@ def check_call(node: ParsedCall, local_table: LocalTable) -> CheckedCall:
                 f'argument nr. {i + 1} is invalid, when calling "{name}"'
                 f", expected {subject_type.params[i].value_type.type_type()}, got {checked_args[i].expr_value_type().type_type()}"
             )
+    if subject_type.is_generic():
+        if node.explicit_type_args:
+            if len(checked_type_args) != len(subject_type.type_params):
+                raise Exception("explicit type args must be exhaustive")
+            # TODO something something traits
+            print(subject_type.func_id, checked_type_args)
+            local_table.instanciate_func(subject_type.func_id, checked_type_args)
+        else:
+            pass  # TODO inference
+            raise NotImplementedError()
     return CheckedCall(
         checked_subject,
         checked_args,
         subject_type.return_type,
     )
+
+
+def check_call_args(
+    checked_subject: CheckedExpr,
+    subject_type: CheckedFuncType,
+    checked_args: List[CheckedExpr],
+) -> None:
+    for i in range(len(subject_type.params)):
+        if not types_compatible(
+            checked_args[i].expr_value_type(), subject_type.params[i].value_type
+        ):
+            name = (
+                cast(CheckedId, checked_subject).value
+                if checked_subject.expr_type() == CheckedExprTypes.Id
+                else "<function>"
+            )
+            raise Exception(
+                f'argument nr. {i + 1} is invalid, when calling "{name}"'
+                f", expected {subject_type.params[i].value_type.type_type()}, got {checked_args[i].expr_value_type().type_type()}"
+            )
 
 
 def check_unary(node: ParsedUnary, local_table: LocalTable) -> CheckedUnary:

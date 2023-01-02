@@ -373,12 +373,17 @@ class ParsedIndexing(ParsedExpr):
 
 class ParsedCall(ParsedExpr):
     def __init__(
-        self, subject: ParsedExpr, type_args: List[ParsedType], args: List[ParsedExpr]
+        self,
+        subject: ParsedExpr,
+        type_args: List[ParsedType],
+        args: List[ParsedExpr],
+        explicit_type_args: bool,
     ) -> None:
         super().__init__()
         self.subject = subject
         self.type_args = type_args
         self.args = args
+        self.explicit_type_args = explicit_type_args
 
     def expr_type(self) -> ParsedExprTypes:
         return ParsedExprTypes.Call
@@ -874,9 +879,10 @@ class Parser:
             TokenTypes.LParen,
             TokenTypes.DoubleColon,
         ]:
+            explicit_type_args = self.current_type() == TokenTypes.DoubleColon
             type_args = self.parse_call_type_args()
             args = self.parse_call_args()
-            return ParsedCall(subject, type_args, args)
+            return ParsedCall(subject, type_args, args, explicit_type_args)
         else:
             return subject
 

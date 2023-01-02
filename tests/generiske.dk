@@ -3,6 +3,6 @@ funktion samme<T>(værdi: T) -> T
     returner værdi
 slut
 
-funktion main() -> heltal
+funktion begynd() -> heltal
     returner samme::<heltal>(0)
 slut

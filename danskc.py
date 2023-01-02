@@ -52,7 +52,6 @@ def main() -> None:
                 "-Wall",
                 "-Wextra",
                 "-Wno-unused-variable",
-                "-Wno-parentheses-equality",
             ]
             os.system(
                 f"gcc {args.tempfile} c/runtime.c {' '.join(cflags)} -o {args.outfile}"
